@@ -1,6 +1,6 @@
 torch
 transformers
 evaluate
-datasets
+datasets<4
 librosa
 jiwer
