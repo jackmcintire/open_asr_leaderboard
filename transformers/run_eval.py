@@ -12,10 +12,11 @@ wer_metric = evaluate.load("wer")
 torch.set_float32_matmul_precision('high')
 
 def main(args):
-    config = AutoConfig.from_pretrained(args.model_id)
+    # Pass revision parameter to all model/processor loading functions
+    config = AutoConfig.from_pretrained(args.model_id, revision=args.revision)
     cls_model = AutoModelForSpeechSeq2Seq if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING else AutoModelForCTC
-    model = cls_model.from_pretrained(args.model_id, torch_dtype=torch.bfloat16, attn_implementation="sdpa").to(args.device)
-    processor = AutoProcessor.from_pretrained(args.model_id)
+    model = cls_model.from_pretrained(args.model_id, torch_dtype=torch.bfloat16, attn_implementation="sdpa", revision=args.revision).to(args.device)
+    processor = AutoProcessor.from_pretrained(args.model_id, revision=args.revision)
     model_input_name = processor.model_input_names[0]
 
     if model.can_generate():
@@ -223,6 +224,12 @@ if __name__ == "__main__":
         type=str,
         default="max-autotune",
         help="Mode for torch compiling model forward pass. Can be either 'default', 'reduce-overhead', 'max-autotune' or 'max-autotune-no-cudagraphs'.",
+    )
+    parser.add_argument(
+        "--revision",
+        type=str,
+        default=None,
+        help="Model revision (commit hash, branch name, or tag name) to use. If not provided, uses the latest version.",
     )
     parser.add_argument(
         "--warmup_steps",

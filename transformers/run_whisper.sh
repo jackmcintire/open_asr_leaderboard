@@ -2,8 +2,10 @@
 
 export PYTHONPATH="..":$PYTHONPATH
 
-MODEL_IDs=("openai/whisper-tiny.en" "openai/whisper-small.en" "openai/whisper-base.en" "openai/whisper-medium.en" "openai/whisper-large" "openai/whisper-large-v2" "openai/whisper-large-v3" "distil-whisper/distil-medium.en" "distil-whisper/distil-large-v2" "distil-whisper/distil-large-v3" "nyrahealth/CrisperWhisper")
+# MODEL_IDs=("openai/whisper-tiny.en" "openai/whisper-small.en" "openai/whisper-base.en" "openai/whisper-medium.en" "openai/whisper-large" "openai/whisper-large-v2" "openai/whisper-large-v3" "distil-whisper/distil-medium.en" "distil-whisper/distil-large-v2" "distil-whisper/distil-large-v3" "nyrahealth/CrisperWhisper")
+MODEL_IDs=("jmci/cool-spaceship-2")
 BATCH_SIZE=64
+REVISION=""
 
 num_models=${#MODEL_IDs[@]}
 
@@ -18,7 +20,8 @@ do
         --split="test" \
         --device=0 \
         --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1
+        --max_eval_samples=-1 \
+        --revision=${REVISION}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -27,7 +30,8 @@ do
         --split="test" \
         --device=0 \
         --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1
+        --max_eval_samples=-1 \
+        --revision=${REVISION}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -36,7 +40,8 @@ do
         --split="test" \
         --device=0 \
         --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1
+        --max_eval_samples=-1 \
+        --revision=${REVISION}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -45,7 +50,8 @@ do
         --split="test" \
         --device=0 \
         --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1
+        --max_eval_samples=-1 \
+        --revision=${REVISION}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -54,7 +60,8 @@ do
         --split="test.clean" \
         --device=0 \
         --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1
+        --max_eval_samples=-1 \
+        --revision=${REVISION}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -63,7 +70,8 @@ do
         --split="test.other" \
         --device=0 \
         --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1
+        --max_eval_samples=-1 \
+        --revision=${REVISION}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -72,7 +80,8 @@ do
         --split="test" \
         --device=0 \
         --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1
+        --max_eval_samples=-1 \
+        --revision=${REVISION}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -81,7 +90,8 @@ do
         --split="test" \
         --device=0 \
         --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1
+        --max_eval_samples=-1 \
+        --revision=${REVISION}
 
     # Evaluate results
     RUNDIR=`pwd` && \

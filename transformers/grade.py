@@ -39,7 +39,7 @@ def compute_metrics(filepath):
     }
 
 def main():
-    results_dir = "/lambda/nfs/jtm/open_asr_leaderboard/transformers/results"
+    results_dir = os.path.abspath("results")
     
     if not os.path.exists(results_dir):
         print(f"Results directory not found: {results_dir}")
