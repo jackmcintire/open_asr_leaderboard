@@ -4,8 +4,8 @@ export PYTHONPATH="..":$PYTHONPATH
 
 # MODEL_IDs=("openai/whisper-tiny.en" "openai/whisper-small.en" "openai/whisper-base.en" "openai/whisper-medium.en" "openai/whisper-large" "openai/whisper-large-v2" "openai/whisper-large-v3" "distil-whisper/distil-medium.en" "distil-whisper/distil-large-v2" "distil-whisper/distil-large-v3" "nyrahealth/CrisperWhisper")
 MODEL_IDs=("jmci/cool-spaceship-2")
-BATCH_SIZE=64
-REVISION=""
+BATCH_SIZE=164
+REVISION="9a76d751ff0ef16a7cfd67e390d8cb5a9b657ec6"
 
 num_models=${#MODEL_IDs[@]}
 

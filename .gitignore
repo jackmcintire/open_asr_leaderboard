@@ -131,4 +131,4 @@ dmypy.json
 # speechbrain
 */pretrained_models/*
 */model_checkpoints/*
-*/results/*
+# */results/*
