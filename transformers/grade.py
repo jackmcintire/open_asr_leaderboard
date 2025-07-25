@@ -67,17 +67,23 @@ def main():
         print(f"\n{model_name}")
         print("-" * 60)
         
-        total_samples = 0
-        weighted_wer = 0
+        dataset_count = 0        # number of datasets seen
+        sum_wer       = 0.0      # un-weighted sum of dataset WERs
+        total_samples = 0        # running sample count
+        weighted_wer  = 0.0      # running Σ(wer * samples)
         
         for dataset, m in sorted(datasets.items()):
             print(f"  {dataset:20s} | WER: {m['wer']:5.1f}% | RTFx: {m['rtfx']:6.1f}x | "
                   f"Samples: {m['num_samples']:5d} | Hours: {m['total_audio_hours']:5.1f}h")
+            dataset_count += 1
+            sum_wer      += m['wer']
             total_samples += m['num_samples']
-            weighted_wer += m['wer'] * m['num_samples']
+            weighted_wer  += m['wer'] * m['num_samples']
         
-        if total_samples:
-            print(f"\n  {'OVERALL':20s} | WER: {weighted_wer/total_samples:5.1f}%")
+        if dataset_count:
+            avg_wer       = sum_wer / dataset_count
+            weighted_avg  = (weighted_wer / total_samples) if total_samples else avg_wer
+            print(f"\n  {'OVERALL':20s} | WER: {avg_wer:5.1f}% ({weighted_avg:5.1f}%)")
     
     print("\n" + "="*80)
 

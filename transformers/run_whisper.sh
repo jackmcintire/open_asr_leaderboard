@@ -3,9 +3,16 @@
 export PYTHONPATH="..":$PYTHONPATH
 
 # MODEL_IDs=("openai/whisper-tiny.en" "openai/whisper-small.en" "openai/whisper-base.en" "openai/whisper-medium.en" "openai/whisper-large" "openai/whisper-large-v2" "openai/whisper-large-v3" "distil-whisper/distil-medium.en" "distil-whisper/distil-large-v2" "distil-whisper/distil-large-v3" "nyrahealth/CrisperWhisper")
-MODEL_IDs=("jmci/cool-spaceship-2")
+MODEL_IDs=("jmci/good-wave-10")
 BATCH_SIZE=180
-REVISION="9a76d751ff0ef16a7cfd67e390d8cb5a9b657ec6"
+# Leave REVISION unset or empty for no revision
+REVISION=""
+
+# Build revision arg only if REVISION is set and non-empty
+REVISION_ARG=""
+if [ -n "$REVISION" ]; then
+    REVISION_ARG="--revision=${REVISION}"
+fi
 
 num_models=${#MODEL_IDs[@]}
 
@@ -21,7 +28,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --revision=${REVISION}
+        ${REVISION_ARG}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -31,7 +38,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --revision=${REVISION}
+        ${REVISION_ARG}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -41,7 +48,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --revision=${REVISION}
+        ${REVISION_ARG}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -51,7 +58,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --revision=${REVISION}
+        ${REVISION_ARG}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -61,7 +68,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --revision=${REVISION}
+        ${REVISION_ARG}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -71,7 +78,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --revision=${REVISION}
+        ${REVISION_ARG}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -81,7 +88,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --revision=${REVISION}
+        ${REVISION_ARG}
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
@@ -91,7 +98,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --revision=${REVISION}
+        ${REVISION_ARG}
 
     # Evaluate results
     RUNDIR=`pwd` && \

@@ -7,16 +7,64 @@ import evaluate
 from normalizer import data_utils
 import time
 from tqdm import tqdm
+import json
+from huggingface_hub import hf_hub_download
+from peft import PeftModel, PeftConfig
 
 wer_metric = evaluate.load("wer")
 torch.set_float32_matmul_precision('high')
 
 def main(args):
-    # Pass revision parameter to all model/processor loading functions
-    config = AutoConfig.from_pretrained(args.model_id, revision=args.revision)
-    cls_model = AutoModelForSpeechSeq2Seq if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING else AutoModelForCTC
-    model = cls_model.from_pretrained(args.model_id, torch_dtype=torch.bfloat16, attn_implementation="sdpa", revision=args.revision).to(args.device)
-    processor = AutoProcessor.from_pretrained(args.model_id)
+    # Check if this is a PEFT model by trying to load adapter_config.json
+    is_peft_model = False
+    base_model_name = None
+    
+    try:
+        # Try to download and read adapter_config.json
+        adapter_config_path = hf_hub_download(
+            repo_id=args.model_id, 
+            filename="adapter_config.json",
+            revision=args.revision
+        )
+        with open(adapter_config_path, 'r') as f:
+            adapter_config = json.load(f)
+        is_peft_model = True
+        base_model_name = adapter_config.get("base_model_name_or_path")
+        print(f"Detected PEFT model. Base model: {base_model_name}")
+    except Exception:
+        # Not a PEFT model, continue with normal loading
+        pass
+    
+    if is_peft_model and base_model_name:
+        # Load the base model first
+        config = AutoConfig.from_pretrained(base_model_name)
+        cls_model = AutoModelForSpeechSeq2Seq if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING else AutoModelForCTC
+        model = cls_model.from_pretrained(
+            base_model_name, 
+            torch_dtype=torch.bfloat16, 
+            attn_implementation="sdpa"
+        )
+        
+        # Load and apply the PEFT adapter
+        model = PeftModel.from_pretrained(
+            model, 
+            args.model_id,
+            revision=args.revision
+        )
+        
+        # Merge adapter weights with base model for faster inference
+        model = model.merge_and_unload()
+        model = model.to(args.device)
+        
+        # Load processor from the PEFT model repo (it should have the tokenizer files)
+        processor = AutoProcessor.from_pretrained(args.model_id, revision=args.revision)
+    else:
+        # Original loading logic for non-PEFT models
+        config = AutoConfig.from_pretrained(args.model_id, revision=args.revision)
+        cls_model = AutoModelForSpeechSeq2Seq if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING else AutoModelForCTC
+        model = cls_model.from_pretrained(args.model_id, torch_dtype=torch.bfloat16, attn_implementation="sdpa", revision=args.revision).to(args.device)
+        processor = AutoProcessor.from_pretrained(args.model_id, revision=args.revision)
+    
     model_input_name = processor.model_input_names[0]
 
     if model.can_generate():
