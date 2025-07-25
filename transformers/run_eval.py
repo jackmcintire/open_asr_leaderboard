@@ -16,13 +16,14 @@ def main(args):
     config = AutoConfig.from_pretrained(args.model_id, revision=args.revision)
     cls_model = AutoModelForSpeechSeq2Seq if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING else AutoModelForCTC
     model = cls_model.from_pretrained(args.model_id, torch_dtype=torch.bfloat16, attn_implementation="sdpa", revision=args.revision).to(args.device)
-    processor = AutoProcessor.from_pretrained(args.model_id, revision=args.revision)
+    processor = AutoProcessor.from_pretrained(args.model_id)
     model_input_name = processor.model_input_names[0]
 
     if model.can_generate():
         gen_kwargs = {"max_new_tokens": args.max_new_tokens}
+        # getattr(model.generation_config, "is_multilingual")
         # for multilingual Whisper-checkpoints we see a definitive WER boost by setting the language and task args
-        if getattr(model.generation_config, "is_multilingual"):
+        if hasattr(model.generation_config, "is_multilingual") and model.generation_config.is_multilingual:
             gen_kwargs["language"] = "en"
             gen_kwargs["task"] = "transcribe"
     elif args.max_new_tokens:
