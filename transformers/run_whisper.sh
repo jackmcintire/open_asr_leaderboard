@@ -3,7 +3,7 @@
 export PYTHONPATH="..":$PYTHONPATH
 
 # MODEL_IDs=("openai/whisper-tiny.en" "openai/whisper-small.en" "openai/whisper-base.en" "openai/whisper-medium.en" "openai/whisper-large" "openai/whisper-large-v2" "openai/whisper-large-v3" "distil-whisper/distil-medium.en" "distil-whisper/distil-large-v2" "distil-whisper/distil-large-v3" "nyrahealth/CrisperWhisper")
-MODEL_IDs=("jmci/good-wave-10")
+MODEL_IDs=("jmci/glowing-leaf-12")
 BATCH_SIZE=180
 # Leave REVISION unset or empty for no revision
 REVISION=""
