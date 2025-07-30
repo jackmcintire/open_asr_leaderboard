@@ -2,7 +2,13 @@ import argparse
 import os
 import torch
 from torch.nn.attention import sdpa_kernel, SDPBackend
-from transformers import AutoConfig, AutoModelForSpeechSeq2Seq, AutoModelForCTC, AutoProcessor, MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING
+from transformers import (
+    AutoConfig,
+    AutoModelForSpeechSeq2Seq,
+    AutoModelForCTC,
+    AutoProcessor,
+    MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING,
+)
 import evaluate
 from normalizer import data_utils
 import time
@@ -12,21 +18,22 @@ from huggingface_hub import hf_hub_download
 from peft import PeftModel, PeftConfig
 
 wer_metric = evaluate.load("wer")
-torch.set_float32_matmul_precision('high')
+torch.set_float32_matmul_precision("high")
+
 
 def main(args):
     # Check if this is a PEFT model by trying to load adapter_config.json
     is_peft_model = False
     base_model_name = None
-    
+
     try:
         # Try to download and read adapter_config.json
         adapter_config_path = hf_hub_download(
-            repo_id=args.model_id, 
+            repo_id=args.model_id,
             filename="adapter_config.json",
-            revision=args.revision
+            revision=args.revision,
         )
-        with open(adapter_config_path, 'r') as f:
+        with open(adapter_config_path, "r") as f:
             adapter_config = json.load(f)
         is_peft_model = True
         base_model_name = adapter_config.get("base_model_name_or_path")
@@ -34,51 +41,65 @@ def main(args):
     except Exception:
         # Not a PEFT model, continue with normal loading
         pass
-    
+
     if is_peft_model and base_model_name:
         # Load the base model first
         config = AutoConfig.from_pretrained(base_model_name)
-        cls_model = AutoModelForSpeechSeq2Seq if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING else AutoModelForCTC
+        cls_model = (
+            AutoModelForSpeechSeq2Seq
+            if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING
+            else AutoModelForCTC
+        )
         model = cls_model.from_pretrained(
-            base_model_name, 
-            torch_dtype=torch.bfloat16, 
-            attn_implementation="sdpa"
+            base_model_name, torch_dtype=torch.bfloat16, attn_implementation="sdpa"
         )
-        
+
         # Load and apply the PEFT adapter
-        model = PeftModel.from_pretrained(
-            model, 
-            args.model_id,
-            revision=args.revision
-        )
-        
+        model = PeftModel.from_pretrained(model, args.model_id, revision=args.revision)
+
         # Merge adapter weights with base model for faster inference
         model = model.merge_and_unload()
         model = model.to(args.device)
-        
+
         # Load processor from the PEFT model repo (it should have the tokenizer files)
         processor = AutoProcessor.from_pretrained(args.model_id, revision=args.revision)
     else:
         # Original loading logic for non-PEFT models
         config = AutoConfig.from_pretrained(args.model_id, revision=args.revision)
-        cls_model = AutoModelForSpeechSeq2Seq if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING else AutoModelForCTC
-        model = cls_model.from_pretrained(args.model_id, torch_dtype=torch.bfloat16, attn_implementation="sdpa", revision=args.revision).to(args.device)
+        cls_model = (
+            AutoModelForSpeechSeq2Seq
+            if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING
+            else AutoModelForCTC
+        )
+        model = cls_model.from_pretrained(
+            args.model_id,
+            torch_dtype=torch.bfloat16,
+            attn_implementation="sdpa",
+            revision=args.revision,
+        ).to(args.device)
         processor = AutoProcessor.from_pretrained(args.model_id, revision=args.revision)
-    
+
     model_input_name = processor.model_input_names[0]
 
     if model.can_generate():
         gen_kwargs = {"max_new_tokens": args.max_new_tokens}
         # getattr(model.generation_config, "is_multilingual")
         # for multilingual Whisper-checkpoints we see a definitive WER boost by setting the language and task args
-        if hasattr(model.generation_config, "is_multilingual") and model.generation_config.is_multilingual:
+        if (
+            hasattr(model.generation_config, "is_multilingual")
+            and model.generation_config.is_multilingual
+        ):
             gen_kwargs["language"] = "en"
             gen_kwargs["task"] = "transcribe"
     elif args.max_new_tokens:
-        raise ValueError("`max_new_tokens` should only be set for auto-regressive models, but got a CTC model.")
+        raise ValueError(
+            "`max_new_tokens` should only be set for auto-regressive models, but got a CTC model."
+        )
 
     if args.torch_compile:
-        model.forward = torch.compile(model.forward, mode=args.compile_mode, fullgraph=True)
+        model.forward = torch.compile(
+            model.forward, mode=args.compile_mode, fullgraph=True
+        )
         if model.can_generate():
             # enable static k/v cache for autoregressive models
             model.generation_config.cache_implementation = "static"
@@ -86,6 +107,10 @@ def main(args):
     def benchmark(batch, min_new_tokens=None):
         # Load audio inputs
         audios = [audio["array"] for audio in batch["audio"]]
+        batch["audio_length_s"] = [
+            len(a["array"]) / a["sampling_rate"] for a in batch["audio"]
+        ]
+
         minibatch_size = len(audios)
 
         # START TIMING
@@ -99,7 +124,9 @@ def main(args):
             padding_audios = [audios[-1] for _ in range(padding_size)]
             audios.extend(padding_audios)
 
-        if not model.can_generate(): #or len(audios[0]) > processor.feature_extractor.n_samples:
+        if (
+            not model.can_generate()
+        ):  # or len(audios[0]) > processor.feature_extractor.n_samples:
             # 1.2 Either CTC pre-processing (normalize to mean 0, std 1), or long-form Whisper processing
             inputs = processor(
                 audios,
@@ -111,16 +138,22 @@ def main(args):
             )
         else:
             # 1.3 Standard Whisper processing: pad audios to 30-seconds and converted to log-mel
-            inputs = processor(audios, sampling_rate=16_000, return_tensors="pt", device=args.device)
+            inputs = processor(
+                audios, sampling_rate=16_000, return_tensors="pt", device=args.device
+            )
 
         inputs = inputs.to(args.device)
         inputs[model_input_name] = inputs[model_input_name].to(torch.bfloat16)
 
         # 2. Model Inference
-        with sdpa_kernel(SDPBackend.MATH if args.torch_compile else SDPBackend.FLASH_ATTENTION):
+        with sdpa_kernel(
+            SDPBackend.MATH if args.torch_compile else SDPBackend.FLASH_ATTENTION
+        ):
             if model.can_generate():
                 # 2.1 Auto-regressive generation for encoder-decoder models
-                pred_ids = model.generate(**inputs, **gen_kwargs, min_new_tokens=min_new_tokens)
+                pred_ids = model.generate(
+                    **inputs, **gen_kwargs, min_new_tokens=min_new_tokens
+                )
             else:
                 # 2.2. Single forward pass for CTC
                 with torch.no_grad():
@@ -154,8 +187,17 @@ def main(args):
         if args.streaming:
             warmup_dataset = dataset.take(num_warmup_samples)
         else:
-            warmup_dataset = dataset.select(range(min(num_warmup_samples, len(dataset))))
-        warmup_dataset = iter(warmup_dataset.map(benchmark, batch_size=args.batch_size, batched=True, fn_kwargs={"min_new_tokens": args.max_new_tokens}))
+            warmup_dataset = dataset.select(
+                range(min(num_warmup_samples, len(dataset)))
+            )
+        warmup_dataset = iter(
+            warmup_dataset.map(
+                benchmark,
+                batch_size=args.batch_size,
+                batched=True,
+                fn_kwargs={"min_new_tokens": args.max_new_tokens},
+            )
+        )
 
         for _ in tqdm(warmup_dataset, desc="Warming up..."):
             continue
@@ -170,7 +212,10 @@ def main(args):
     dataset = data_utils.prepare_data(dataset)
 
     dataset = dataset.map(
-        benchmark, batch_size=args.batch_size, batched=True, remove_columns=["audio"],
+        benchmark,
+        batch_size=args.batch_size,
+        batched=True,
+        remove_columns=["audio"],
     )
 
     all_results = {
@@ -201,7 +246,9 @@ def main(args):
         references=all_results["references"], predictions=all_results["predictions"]
     )
     wer = round(100 * wer, 2)
-    rtfx = round(sum(all_results["audio_length_s"]) / sum(all_results["transcription_time_s"]), 2)
+    rtfx = round(
+        sum(all_results["audio_length_s"]) / sum(all_results["transcription_time_s"]), 2
+    )
     print("WER:", wer, "%", "RTFx:", rtfx)
 
 

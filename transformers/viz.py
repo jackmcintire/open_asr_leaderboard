@@ -19,26 +19,44 @@ def calculate_individual_wer(reference, prediction):
     return 100 * wer_metric.compute(references=[reference], predictions=[prediction])
 
 
-def load_model_results(model_name, results_dir="results"):
-    """Load all results for a given model"""
+def load_model_results(model_identifier, results_dir="results"):
+    """Load all results for a given model or a single file."""
     all_examples = []
-
-    # First, find all relevant files
     relevant_files = []
-    for filename in os.listdir(results_dir):
-        if filename.startswith(f"MODEL_{model_name}_DATASET_") and filename.endswith(
-            ".jsonl"
-        ):
-            relevant_files.append(filename)
 
-    print(f"Found {len(relevant_files)} dataset files for model '{model_name}'")
+    # Heuristic: if it contains _DATASET_, user might be specifying a file.
+    is_filename_like = "_DATASET_" in model_identifier
+
+    if is_filename_like:
+        filename_with_ext = model_identifier
+        if not filename_with_ext.endswith(".jsonl"):
+            filename_with_ext += ".jsonl"
+
+        filepath = os.path.join(results_dir, filename_with_ext)
+        if os.path.exists(filepath):
+            relevant_files.append(filename_with_ext)
+            print(f"Loading from specific file: {filename_with_ext}")
+
+    # If it wasn't a file-like string or the file wasn't found,
+    # treat it as a model name.
+    if not relevant_files:
+        model_name = model_identifier
+        for filename in os.listdir(results_dir):
+            if filename.startswith(
+                f"MODEL_{model_name}_DATASET_"
+            ) and filename.endswith(".jsonl"):
+                relevant_files.append(filename)
+
+        if relevant_files:
+            print(f"Found {len(relevant_files)} dataset files for model '{model_name}'")
 
     # Process each file with progress bar
     for filename in tqdm(relevant_files, desc="Loading datasets"):
         # Extract dataset name from filename
-        dataset_name = filename.replace(f"MODEL_{model_name}_DATASET_", "").replace(
-            ".jsonl", ""
-        )
+        try:
+            dataset_name = filename.split("_DATASET_")[1].replace(".jsonl", "")
+        except IndexError:
+            dataset_name = "unknown"
 
         filepath = os.path.join(results_dir, filename)
         with open(filepath, "r") as f:
@@ -90,14 +108,14 @@ def highlight_differences(reference, prediction):
     return " ".join(ref_highlighted), " ".join(pred_highlighted)
 
 
-def visualize_worst_examples(model_name, top_n=50, interactive=True):
-    """Visualize the worst WER examples for a model"""
-    print(f"\nLoading results for model: {colored(model_name, 'cyan', attrs=['bold'])}")
+def visualize_worst_examples(model_identifier, top_n=50, interactive=True):
+    """Visualize the worst WER examples for a model or a specific file"""
+    print(f"\nLoading results for: {colored(model_identifier, 'cyan', attrs=['bold'])}")
 
-    examples = load_model_results(model_name)
+    examples = load_model_results(model_identifier)
 
     if not examples:
-        print(colored(f"No results found for model '{model_name}'", "red"))
+        print(colored(f"No results found for '{model_identifier}'", "red"))
         return
 
     print(f"\nSorting {len(examples)} examples by WER...")
@@ -142,7 +160,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="Visualize worst WER examples for a model"
     )
-    parser.add_argument("model_name", nargs="?", help="Name of the model to analyze")
+    parser.add_argument(
+        "model_or_filename", nargs="?", help="Name of the model or filename to analyze"
+    )
     parser.add_argument(
         "-n",
         "--top",
@@ -154,7 +174,16 @@ def main():
         "--list-models", action="store_true", help="List all available models"
     )
     parser.add_argument(
+        "--list-files", action="store_true", help="List all available result files"
+    )
+    parser.add_argument(
         "--no-interactive", action="store_true", help="Don't pause between examples"
+    )
+    parser.add_argument(
+        "--results-dir",
+        type=str,
+        default="results",
+        help="Directory containing the results files (default: results)",
     )
 
     args = parser.parse_args()
@@ -162,7 +191,7 @@ def main():
     if args.list_models:
         # List all available models
         models = set()
-        for filename in os.listdir("results"):
+        for filename in os.listdir(args.results_dir):
             if filename.startswith("MODEL_") and filename.endswith(".jsonl"):
                 model_name = filename[6:].split("_DATASET_")[0]
                 models.add(model_name)
@@ -172,11 +201,23 @@ def main():
             print(f"  - {model}")
         return
 
-    if not args.model_name:
-        parser.error("model_name is required unless using --list-models")
+    if args.list_files:
+        # List all available result files
+        print("\nAvailable result files:")
+        for filename in sorted(os.listdir("results")):
+            if filename.startswith("MODEL_") and filename.endswith(".jsonl"):
+                print(f"  - {filename}")
+        return
+
+    if not args.model_or_filename:
+        parser.error(
+            "model_or_filename is required unless using --list-models or --list-files"
+        )
 
     visualize_worst_examples(
-        args.model_name, args.top, interactive=not args.no_interactive
+        args.model_or_filename,
+        top_n=args.top,
+        interactive=not args.no_interactive,
     )
 
 

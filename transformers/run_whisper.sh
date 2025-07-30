@@ -22,6 +22,16 @@ do
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
+        --dataset_path="aquavoice/custom_dict_38k_gemini_2.5_flash_ts" \
+        --dataset="default" \
+        --split="test" \
+        --device=0 \
+        --batch_size=${BATCH_SIZE} \
+        --max_eval_samples=-1 \
+        ${REVISION_ARG}
+        
+    python run_eval.py \
+        --model_id=${MODEL_ID} \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="voxpopuli" \
         --split="test" \
