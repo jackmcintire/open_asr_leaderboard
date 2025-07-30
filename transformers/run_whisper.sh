@@ -3,7 +3,7 @@
 export PYTHONPATH="..":$PYTHONPATH
 
 # MODEL_IDs=("openai/whisper-tiny.en" "openai/whisper-small.en" "openai/whisper-base.en" "openai/whisper-medium.en" "openai/whisper-large" "openai/whisper-large-v2" "openai/whisper-large-v3" "distil-whisper/distil-medium.en" "distil-whisper/distil-large-v2" "distil-whisper/distil-large-v3" "nyrahealth/CrisperWhisper")
-MODEL_IDs=("jmci/deep-thunder-40")
+MODEL_IDs=("openai/whisper-large-v3")
 BATCH_SIZE=200
 # Leave REVISION unset or empty for no revision
 REVISION=""
@@ -20,9 +20,19 @@ for (( i=0; i<${num_models}; i++ ));
 do
     MODEL_ID=${MODEL_IDs[$i]}
 
+    # python run_eval.py \
+    #     --model_id=${MODEL_ID} \
+    #     --dataset_path="aquavoice/custom_dict_38k_gemini_2.5_flash_ts" \
+    #     --dataset="default" \
+    #     --split="test" \
+    #     --device=0 \
+    #     --batch_size=${BATCH_SIZE} \
+    #     --max_eval_samples=-1 \
+    #     ${REVISION_ARG}
+
     python run_eval.py \
         --model_id=${MODEL_ID} \
-        --dataset_path="aquavoice/custom_dict_38k_gemini_2.5_flash_ts" \
+        --dataset_path="aquavoice/monthly_full_test_mk3.5_gemini_2.5_flash" \
         --dataset="default" \
         --split="test" \
         --device=0 \
