@@ -79,6 +79,19 @@ def main(args):
         ).to(args.device)
         processor = AutoProcessor.from_pretrained(args.model_id, revision=args.revision)
 
+    # Construct the path for the results manifest file
+    model_id_str = args.model_id.replace("/", "-")
+    dataset_path_str = args.dataset_path.replace("/", "-")
+    dataset_str = args.dataset.replace("/", "-")
+    manifest_path = f"results/MODEL_{model_id_str}_DATASET_{dataset_path_str}_{dataset_str}_{args.split}.jsonl"
+
+    # Check if the results file already exists
+    if os.path.exists(manifest_path):
+        print(
+            f"Results for model {args.model_id} on dataset {args.dataset} ({args.split} split) already exist. Skipping."
+        )
+        return
+
     model_input_name = processor.model_input_names[0]
 
     if model.can_generate():
