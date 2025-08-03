@@ -33,6 +33,27 @@ def compute_metrics(filepath):
     predictions = [d["pred_text"] for d in data]
     audio_durations = [d["duration"] for d in data]
     transcription_times = [d["time"] for d in data]
+    special_words = [
+        d.get("matched_special_words", []) for d in data
+    ]  # Use get() with default empty list
+
+    # Calculate special words accuracy
+    special_words_correct = 0
+    total_with_special = 0
+    for pred, special in zip(predictions, special_words):
+        if special:  # Only count examples that have special words
+            total_with_special += 1
+            # Split prediction into words and convert to lowercase
+            pred_words = set(pred.lower().split())
+            # Check if all special words are in prediction as whole words
+            if all(word.lower() in pred_words for word in special):
+                special_words_correct += 1
+
+    special_words_accuracy = (
+        (special_words_correct / total_with_special * 100)
+        if total_with_special > 0
+        else 0
+    )
 
     wer = 100 * wer_metric.compute(references=references, predictions=predictions)
     rtfx = sum(audio_durations) / sum(transcription_times)
@@ -42,6 +63,8 @@ def compute_metrics(filepath):
         "rtfx": round(rtfx, 2),
         "num_samples": len(data),
         "total_audio_hours": round(sum(audio_durations) / 3600, 2),
+        "special_words_acc": round(special_words_accuracy, 2),
+        "samples_with_special": total_with_special,
     }
 
 
@@ -85,6 +108,7 @@ def main():
         for dataset, m in sorted(datasets.items()):
             print(
                 f"  {dataset:20s} | WER: {m['wer']:5.1f}% | RTFx: {m['rtfx']:6.1f}x | "
+                f"Special: {m['special_words_acc']:5.1f}% | "
                 f"Samples: {m['num_samples']:5d} | Hours: {m['total_audio_hours']:5.1f}h"
             )
             dataset_count += 1
