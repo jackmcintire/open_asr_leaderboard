@@ -111,10 +111,13 @@ def main():
                 f"Special: {m['special_words_acc']:5.1f}% | "
                 f"Samples: {m['num_samples']:5d} | Hours: {m['total_audio_hours']:5.1f}h"
             )
-            dataset_count += 1
-            sum_wer += m["wer"]
-            total_samples += m["num_samples"]
-            weighted_wer += m["wer"] * m["num_samples"]
+            if (
+                not "global-dict" in dataset
+            ):  # exclude from metrics as these are all present in the aquavoice dataset
+                dataset_count += 1
+                sum_wer += m["wer"]
+                total_samples += m["num_samples"]
+                weighted_wer += m["wer"] * m["num_samples"]
 
         if dataset_count:
             avg_wer = sum_wer / dataset_count
