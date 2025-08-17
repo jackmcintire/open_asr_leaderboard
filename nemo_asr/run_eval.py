@@ -29,17 +29,18 @@ def main(args):
 
     if args.device >= 0:
         device = torch.device(f"cuda:{args.device}")
-        compute_dtype=torch.bfloat16
+        compute_dtype = torch.bfloat16
     else:
         device = torch.device("cpu")
-        compute_dtype=torch.float32
-        
+        compute_dtype = torch.float32
 
     if args.model_id.endswith(".nemo"):
         asr_model = ASRModel.restore_from(args.model_id, map_location=device)
     else:
-        asr_model = ASRModel.from_pretrained(args.model_id, map_location=device)  # type: ASRModel
-    
+        asr_model = ASRModel.from_pretrained(
+            args.model_id, map_location=device
+        )  # type: ASRModel
+
     asr_model.to(compute_dtype)
     asr_model.eval()
 
@@ -51,14 +52,15 @@ def main(args):
         audio_paths = []
         durations = []
 
-        for id, sample in zip(batch["id"], batch["audio"]):
+        for id, sample in zip(batch["session_id"], batch["audio"]):
 
             # first step added here to make ID and wav filenames unique
             # several datasets like earnings22 have a hierarchical structure
             # for eg. earnings22/test/4432298/281.wav, earnings22/test/4450488/281.wav
             # lhotse uses the filename (281.wav) here as unique ID to create and name cuts
             # ref: https://github.com/lhotse-speech/lhotse/blob/master/lhotse/dataset/collation.py#L186
-            id = id.replace('/', '_').removesuffix('.wav')
+            id = str(id)
+            id = id.replace("/", "_").removesuffix(".wav")
 
             audio_path = os.path.join(CACHE_DIR, f"{id}.wav")
 
@@ -66,9 +68,13 @@ def main(args):
                 audio_array = np.float32(sample["array"])
                 sample_rate = 16000
 
-            elif "bytes" in sample: # added to be compatible with latest datasets library (3.x.x) that produces byte stream
+            elif (
+                "bytes" in sample
+            ):  # added to be compatible with latest datasets library (3.x.x) that produces byte stream
                 with io.BytesIO(sample["bytes"]) as audio_file:
-                    audio_array, sample_rate = soundfile.read(audio_file, dtype="float32")
+                    audio_array, sample_rate = soundfile.read(
+                        audio_file, dtype="float32"
+                    )
 
             else:
                 raise ValueError("Sample must have either 'array' or 'bytes' key")
@@ -80,13 +86,11 @@ def main(args):
             audio_paths.append(audio_path)
             durations.append(len(audio_array) / sample_rate)
 
-        
         batch["references"] = batch["norm_text"]
         batch["audio_filepaths"] = audio_paths
         batch["durations"] = durations
 
         return batch
-
 
     if args.max_eval_samples is not None and args.max_eval_samples > 0:
         print(f"Subsampling dataset to first {args.max_eval_samples} samples !")
@@ -96,9 +100,14 @@ def main(args):
     if asr_model.cfg.decoding.strategy != "beam":
         asr_model.cfg.decoding.strategy = "greedy_batch"
         asr_model.change_decoding_strategy(asr_model.cfg.decoding)
-    
+
     # prepraing the offline dataset
-    dataset = dataset.map(download_audio_files, batch_size=args.batch_size, batched=True, remove_columns=["audio"])
+    dataset = dataset.map(
+        download_audio_files,
+        batch_size=args.batch_size,
+        batched=True,
+        remove_columns=["audio"],
+    )
 
     # Write manifest from daraset batch using json and keys audio_filepath, duration, text
 
@@ -112,26 +121,46 @@ def main(args):
     for data in tqdm(data_itr, desc="Downloading Samples"):
         for key in all_data:
             all_data[key].append(data[key])
-    
+
     # Sort audio_filepaths and references based on durations values
-    sorted_indices = sorted(range(len(all_data["durations"])), key=lambda k: all_data["durations"][k], reverse=True)
-    all_data["audio_filepaths"] = [all_data["audio_filepaths"][i] for i in sorted_indices]
+    sorted_indices = sorted(
+        range(len(all_data["durations"])),
+        key=lambda k: all_data["durations"][k],
+        reverse=True,
+    )
+    all_data["audio_filepaths"] = [
+        all_data["audio_filepaths"][i] for i in sorted_indices
+    ]
     all_data["references"] = [all_data["references"][i] for i in sorted_indices]
     all_data["durations"] = [all_data["durations"][i] for i in sorted_indices]
-    
-    
+
     total_time = 0
-    for _ in range(2): # warmup once and calculate rtf
+    for _ in range(2):  # warmup once and calculate rtf
         if _ == 0:
-            audio_files = all_data["audio_filepaths"][:args.batch_size * 4] # warmup with 4 batches
+            audio_files = all_data["audio_filepaths"][
+                : args.batch_size * 4
+            ]  # warmup with 4 batches
         else:
             audio_files = all_data["audio_filepaths"]
         start_time = time.time()
-        with torch.cuda.amp.autocast(enabled=False, dtype=compute_dtype), torch.inference_mode(), torch.no_grad():
-            if 'canary' in args.model_id:
-                transcriptions = asr_model.transcribe(audio_files, batch_size=args.batch_size, verbose=False, pnc='no', num_workers=1)
+        with torch.cuda.amp.autocast(
+            enabled=False, dtype=compute_dtype
+        ), torch.inference_mode(), torch.no_grad():
+            if "canary" in args.model_id:
+                transcriptions = asr_model.transcribe(
+                    audio_files,
+                    batch_size=args.batch_size,
+                    verbose=False,
+                    pnc="no",
+                    num_workers=1,
+                )
             else:
-                transcriptions = asr_model.transcribe(audio_files, batch_size=args.batch_size, verbose=False, num_workers=1)
+                transcriptions = asr_model.transcribe(
+                    audio_files,
+                    batch_size=args.batch_size,
+                    verbose=False,
+                    num_workers=1,
+                )
         end_time = time.time()
         if _ == 1:
             total_time += end_time - start_time
@@ -158,7 +187,7 @@ def main(args):
 
     print("Results saved at path:", os.path.abspath(manifest_path))
 
-    wer = wer_metric.compute(references=all_data['references'], predictions=predictions)
+    wer = wer_metric.compute(references=all_data["references"], predictions=predictions)
     wer = round(100 * wer, 2)
 
     # transcription_time = sum(all_results["transcription_time"])
@@ -174,10 +203,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--model_id", type=str, required=True, help="Model identifier. Should be loadable with NVIDIA NeMo.",
+        "--model_id",
+        type=str,
+        required=True,
+        help="Model identifier. Should be loadable with NVIDIA NeMo.",
     )
     parser.add_argument(
-        '--dataset_path', type=str, default='esb/datasets', help='Dataset path. By default, it is `esb/datasets`'
+        "--dataset_path",
+        type=str,
+        default="esb/datasets",
+        help="Dataset path. By default, it is `esb/datasets`",
     )
     parser.add_argument(
         "--dataset",
@@ -199,7 +234,10 @@ if __name__ == "__main__":
         help="The device to run the pipeline on. -1 for CPU (default), 0 for the first GPU and so on.",
     )
     parser.add_argument(
-        "--batch_size", type=int, default=32, help="Number of samples to go through each streamed batch.",
+        "--batch_size",
+        type=int,
+        default=32,
+        help="Number of samples to go through each streamed batch.",
     )
     parser.add_argument(
         "--max_eval_samples",
@@ -209,7 +247,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--no-streaming",
-        dest='streaming',
+        dest="streaming",
         action="store_false",
         help="Choose whether you'd like to download the entire dataset or stream it during the evaluation.",
     )

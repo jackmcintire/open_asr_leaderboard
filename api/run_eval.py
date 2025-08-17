@@ -256,6 +256,12 @@ def transcribe_with_retry(
                         transcript_text.append(element.value)
 
                 return "".join(transcript_text) if transcript_text else ""
+            elif model_name.startswith("avalon"):
+                # endpoint_url = "http://38.127.229.90:8001/transcribe"
+                endpoint_url = "http://54.245.217.27:8001/transcribe"
+                with open(audio_file_path, "rb") as audio_file:
+                    response = requests.post(endpoint_url, files={'file': audio_file})
+                return response.json()["text"]
 
             else:
                 raise ValueError(
@@ -420,7 +426,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--max_samples", type=int, default=None)
     parser.add_argument(
-        "--max_workers", type=int, default=300, help="Number of concurrent threads"
+        "--max_workers", type=int, default=32, help="Number of concurrent threads"
     )
     parser.add_argument(
         "--use_url",
@@ -429,6 +435,8 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    print(f"Running with {args.max_workers} workers")
 
     transcribe_dataset(
         dataset_path=args.dataset_path,

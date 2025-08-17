@@ -1,5 +1,6 @@
 import os
 import json
+import argparse
 from collections import defaultdict
 import evaluate
 
@@ -17,16 +18,28 @@ def parse_filename(filename):
 
     model_name = parts[0]
     dataset_parts = parts[1].split("_")
-    dataset_name = (
-        dataset_parts[1]
-        if dataset_parts[0] == "hf-audio-esb-datasets-test-only-sorted"
-        else dataset_parts[0]
-    )
+    # For HF Audio ESB datasets, the structure is:
+    #   hf-audio-esb-datasets-test-only-sorted_<dataset>_<subset>
+    # e.g., hf-audio-esb-datasets-test-only-sorted_librispeech_test.clean
+    if dataset_parts[0] == "hf-audio-esb-datasets-test-only-sorted":
+        base_dataset = dataset_parts[1] if len(dataset_parts) > 1 else ""
+        # Special-case Librispeech to distinguish clean vs other without showing "test"
+        # Filenames carry subset like "test.clean" or "test.other"
+        if base_dataset == "librispeech" and len(dataset_parts) > 2:
+            subset = dataset_parts[2]  # e.g., "test.clean"
+            # Extract variant after the dot if present
+            variant = subset.split(".")[1] if "." in subset else subset
+            dataset_name = f"librispeech_{variant}"
+        else:
+            # Keep just the dataset name (e.g., "earnings22") as before
+            dataset_name = base_dataset
+    else:
+        dataset_name = dataset_parts[0]
 
     return model_name, dataset_name
 
 
-def compute_metrics(filepath):
+def compute_metrics(filepath, duration_threshold=None):
     data = [json.loads(line) for line in open(filepath) if line.strip()]
 
     references = [d["text"] for d in data]
@@ -55,20 +68,51 @@ def compute_metrics(filepath):
         else 0
     )
 
+    audio_seconds = sum(audio_durations)
+    transcription_seconds = sum(transcription_times)
     wer = 100 * wer_metric.compute(references=references, predictions=predictions)
-    rtfx = sum(audio_durations) / sum(transcription_times)
+    rtfx = audio_seconds / transcription_seconds if transcription_seconds else 0.0
 
-    return {
+    result = {
         "wer": round(wer, 2),
         "rtfx": round(rtfx, 2),
         "num_samples": len(data),
-        "total_audio_hours": round(sum(audio_durations) / 3600, 2),
+        "total_audio_hours": round(audio_seconds / 3600, 2),
         "special_words_acc": round(special_words_accuracy, 2),
         "samples_with_special": total_with_special,
+        "audio_seconds": audio_seconds,
+        "transcription_seconds": transcription_seconds,
     }
+    
+    # Calculate metrics for clips longer than threshold if specified
+    if duration_threshold is not None:
+        long_refs = []
+        long_preds = []
+        for i, duration in enumerate(audio_durations):
+            if duration > duration_threshold:
+                long_refs.append(references[i])
+                long_preds.append(predictions[i])
+        
+        if long_refs:
+            long_wer = 100 * wer_metric.compute(references=long_refs, predictions=long_preds)
+            result["long_clip_wer"] = round(long_wer, 2)
+            result["long_clip_samples"] = len(long_refs)
+        else:
+            result["long_clip_wer"] = None
+            result["long_clip_samples"] = 0
+    
+    return result
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Grade ASR model results")
+    parser.add_argument(
+        "--min-duration",
+        type=float,
+        help="Minimum duration in seconds to calculate separate WER for long clips"
+    )
+    args = parser.parse_args()
+    
     results_dir = os.path.abspath("results")
 
     if not os.path.exists(results_dir):
@@ -89,12 +133,42 @@ def main():
 
         print(f"Processing {model_name} on {dataset_name}...")
         model_results[model_name][dataset_name] = compute_metrics(
-            os.path.join(results_dir, filename)
+            os.path.join(results_dir, filename),
+            duration_threshold=args.min_duration
         )
 
     print("\n" + "=" * 80)
     print("ASR Evaluation Results")
+    if args.min_duration:
+        print(f"(Including WER for clips > {args.min_duration} seconds)")
     print("=" * 80)
+
+    # If we need long clip metrics, collect aggregated data
+    model_long_clip_data = defaultdict(lambda: {"refs": [], "preds": []})
+    
+    if args.min_duration:
+        # Re-read all files to collect long clip data for aggregation
+        for filename in sorted(os.listdir(results_dir)):
+            if not filename.endswith(".jsonl"):
+                continue
+            
+            model_name, dataset_name = parse_filename(filename)
+            if not model_name:
+                continue
+                
+            # Skip excluded datasets
+            if "global-dict" in dataset_name or "aquavoice" in dataset_name:
+                continue
+                
+            # Read the file and collect long clips
+            filepath = os.path.join(results_dir, filename)
+            with open(filepath) as f:
+                for line in f:
+                    if line.strip():
+                        d = json.loads(line)
+                        if d["duration"] > args.min_duration:
+                            model_long_clip_data[model_name]["refs"].append(d["text"])
+                            model_long_clip_data[model_name]["preds"].append(d["pred_text"])
 
     for model_name, datasets in model_results.items():
         print(f"\n{model_name}")
@@ -104,25 +178,54 @@ def main():
         sum_wer = 0.0  # un-weighted sum of dataset WERs
         total_samples = 0  # running sample count
         weighted_wer = 0.0  # running Σ(wer * samples)
+        total_audio_sec = 0.0
+        total_trans_sec = 0.0
 
         for dataset, m in sorted(datasets.items()):
-            print(
-                f"  {dataset:20s} | WER: {m['wer']:5.1f}% | RTFx: {m['rtfx']:6.1f}x | "
+            # Build the main line
+            line = (
+                f"  {dataset:20s} | WER: {m['wer']:5.2f}% | RTFx: {m['rtfx']:6.1f}x | "
                 f"Special: {m['special_words_acc']:5.1f}% | "
                 f"Samples: {m['num_samples']:5d} | Hours: {m['total_audio_hours']:5.1f}h"
             )
+            
+            # Add long clip WER if available
+            if args.min_duration and "long_clip_wer" in m and m["long_clip_wer"] is not None:
+                line += f" | Long WER: {m['long_clip_wer']:5.1f}% ({m['long_clip_samples']} samples)"
+            
+            print(line)
+            
             if (
-                not "global-dict" in dataset
+                not "global-dict" in dataset and not "aquavoice" in dataset
             ):  # exclude from metrics as these are all present in the aquavoice dataset
                 dataset_count += 1
                 sum_wer += m["wer"]
                 total_samples += m["num_samples"]
                 weighted_wer += m["wer"] * m["num_samples"]
+                total_audio_sec += m.get("audio_seconds", 0.0)
+                total_trans_sec += m.get("transcription_seconds", 0.0)
 
         if dataset_count:
             avg_wer = sum_wer / dataset_count
             weighted_avg = (weighted_wer / total_samples) if total_samples else avg_wer
-            print(f"\n  {'OVERALL':20s} | WER: {avg_wer:5.1f}% ({weighted_avg:5.1f}%)")
+            overall_rtfx = (
+                (total_audio_sec / total_trans_sec) if total_trans_sec else 0.0
+            )
+            
+            # Build overall line
+            overall_line = f"\n  {'OVERALL':20s} | WER: {avg_wer:5.2f}% ({weighted_avg:5.1f}%) | RTFx: {overall_rtfx:6.1f}x"
+            
+            # Add total long clip WER if available
+            if args.min_duration and model_name in model_long_clip_data:
+                long_data = model_long_clip_data[model_name]
+                if long_data["refs"]:
+                    total_long_wer = 100 * wer_metric.compute(
+                        references=long_data["refs"],
+                        predictions=long_data["preds"]
+                    )
+                    overall_line += f" | Total Long WER: {total_long_wer:5.2f}% ({len(long_data['refs'])} samples)"
+            
+            print(overall_line)
 
     print("\n" + "=" * 80)
 
