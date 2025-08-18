@@ -258,7 +258,8 @@ def transcribe_with_retry(
                 return "".join(transcript_text) if transcript_text else ""
             elif model_name.startswith("avalon"):
                 # endpoint_url = "http://38.127.229.90:8001/transcribe"
-                endpoint_url = "http://54.245.217.27:8001/transcribe"
+                # endpoint_url = "http://54.245.217.27:8001/transcribe"
+                endpoint_url = "http://38.127.229.70:8001/transcribe"
                 with open(audio_file_path, "rb") as audio_file:
                     response = requests.post(endpoint_url, files={'file': audio_file})
                 return response.json()["text"]

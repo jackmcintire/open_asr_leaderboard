@@ -16,7 +16,7 @@ MODEL_IDs=(
     # "revai/machine" # please use --use_url=True
     # "revai/fusion" # please use --use_url=True
     # "speechmatics/enhanced"
-    "avalon"
+    "avalon-b200"
 )
 
 num_models=${#MODEL_IDs[@]}
@@ -29,14 +29,14 @@ do
         --dataset="ami" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=5
+        --max_workers=3
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="earnings22" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=5
+        --max_workers=3
 
         
 
@@ -45,49 +45,49 @@ do
         --dataset="gigaspeech" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=5
+        --max_workers=3
 
     python run_eval.py \
         --dataset_path "hf-audio/esb-datasets-test-only-sorted" \
         --dataset "librispeech" \
         --split "test.clean" \
         --model_name ${MODEL_ID} \
-        --max_workers=5
+        --max_workers=3
 
     python run_eval.py \
         --dataset_path "hf-audio/esb-datasets-test-only-sorted" \
         --dataset "librispeech" \
         --split "test.other" \
         --model_name ${MODEL_ID} \
-        --max_workers=5
+        --max_workers=3
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="spgispeech" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=5
+        --max_workers=3
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="tedlium" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=5
+        --max_workers=3
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="voxpopuli" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=5
+        --max_workers=3
     
     # python run_eval.py \
     #     --dataset_path="aquavoice/cleaned_dataset_full_2x_en_resplit" \
     #     --dataset="default" \
     #     --split="test" \
     #     --model_name ${MODEL_ID} \
-    #     --max_workers=5
+    #     --max_workers=3
     
     # Evaluate results
     RUNDIR=`pwd` && \
