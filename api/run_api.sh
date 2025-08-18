@@ -24,70 +24,70 @@ num_models=${#MODEL_IDs[@]}
 for (( i=0; i<${num_models}; i++ ));
 do
     MODEL_ID=${MODEL_IDs[$i]}
-    python run_eval.py \
-        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="ami" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=3
-
-    python run_eval.py \
-        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="earnings22" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=3
-
-        
-
-    python run_eval.py \
-        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="gigaspeech" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=3
-
-    python run_eval.py \
-        --dataset_path "hf-audio/esb-datasets-test-only-sorted" \
-        --dataset "librispeech" \
-        --split "test.clean" \
-        --model_name ${MODEL_ID} \
-        --max_workers=3
-
-    python run_eval.py \
-        --dataset_path "hf-audio/esb-datasets-test-only-sorted" \
-        --dataset "librispeech" \
-        --split "test.other" \
-        --model_name ${MODEL_ID} \
-        --max_workers=3
-
-    python run_eval.py \
-        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="spgispeech" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=3
-
-    python run_eval.py \
-        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="tedlium" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=3
-
-    python run_eval.py \
-        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="voxpopuli" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=3
-    
     # python run_eval.py \
-    #     --dataset_path="aquavoice/cleaned_dataset_full_2x_en_resplit" \
-    #     --dataset="default" \
+    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset="ami" \
     #     --split="test" \
     #     --model_name ${MODEL_ID} \
     #     --max_workers=3
+
+    # python run_eval.py \
+    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset="earnings22" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=3
+
+        
+
+    # python run_eval.py \
+    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset="gigaspeech" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=3
+
+    # python run_eval.py \
+    #     --dataset_path "hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset "librispeech" \
+    #     --split "test.clean" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=3
+
+    # python run_eval.py \
+    #     --dataset_path "hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset "librispeech" \
+    #     --split "test.other" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=3
+
+    # python run_eval.py \
+    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset="spgispeech" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=3
+
+    # python run_eval.py \
+    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset="tedlium" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=3
+
+    # python run_eval.py \
+    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset="voxpopuli" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=3
+    
+    python run_eval.py \
+        --dataset_path="aquavoice/cleaned_dataset_full_2x_en_resplit" \
+        --dataset="default" \
+        --split="test" \
+        --model_name ${MODEL_ID} \
+        --max_workers=1
     
     # Evaluate results
     RUNDIR=`pwd` && \
