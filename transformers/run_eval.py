@@ -15,91 +15,90 @@ import time
 from tqdm import tqdm
 import json
 from huggingface_hub import hf_hub_download
-from peft import PeftModel, PeftConfig
-from optimized import OptimizedWhisper
+from peft import PeftModel
+import re, unicodedata
+
+def ja_normalize_for_cer(s: str, drop_punct=False, drop_spaces=True):
+    # Compatibility + width normalization; keeps dakuten/handakuten intact.
+    s = unicodedata.normalize("NFKC", s)
+    if drop_spaces:
+        s = re.sub(r"[ \u3000]+", "", s)  # ASCII/ideographic spaces
+    if drop_punct:
+        # Remove common JP/ASCII punctuation blocks if your references omit them.
+        s = re.sub(r"[\u3000-\u303F\uFF00-\uFF65\u2000-\u206F"
+                   r"\u2E00-\u2E7F\u0021-\u002F\u003A-\u0040"
+                   r"\u005B-\u0060\u007B-\u007E]", "", s)
+    return s
 
 wer_metric = evaluate.load("wer")
+cer_metric = evaluate.load("cer")
+metric = cer_metric
 torch.set_float32_matmul_precision("high")
 
 
 def main(args):
-    using_optimized = args.model_id.strip().lower() == "optimized"
+    # Check if this is a PEFT model by trying to load adapter_config.json
+    is_peft_model = False
+    base_model_name = None
 
-    if using_optimized:
-        device_str = (
-            f"cuda:{args.device}"
-            if (args.device >= 0 and torch.cuda.is_available())
-            else "cpu"
+    try:
+        # Try to download and read adapter_config.json
+        adapter_config_path = hf_hub_download(
+            repo_id=args.model_id,
+            filename="adapter_config.json",
+            revision=args.revision,
         )
-        dtype = torch.float16 if device_str.startswith("cuda") else torch.bfloat16
-        opt = OptimizedWhisper(
-            device=device_str, dtype=dtype, language="en", task="transcribe"
+        with open(adapter_config_path, "r") as f:
+            adapter_config = json.load(f)
+        is_peft_model = True
+        base_model_name = adapter_config.get("base_model_name_or_path")
+        print(f"Detected PEFT model. Base model: {base_model_name}")
+    except Exception:
+        # Not a PEFT model, continue with normal loading
+        pass
+
+    if is_peft_model and base_model_name:
+        # Load the base model first
+        config = AutoConfig.from_pretrained(base_model_name)
+        cls_model = (
+            AutoModelForSpeechSeq2Seq
+            if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING
+            else AutoModelForCTC
         )
-        model = opt.model
-        processor = opt.processor
+        model = cls_model.from_pretrained(
+            base_model_name, torch_dtype=torch.bfloat16, attn_implementation="sdpa"
+        )
+
+        # Load and apply the PEFT adapter
+        model = PeftModel.from_pretrained(
+            model, args.model_id, revision=args.revision
+        )
+
+        # Merge adapter weights with base model for faster inference
+        model = model.merge_and_unload()
+        model = model.to(args.device)
+
+        # Load processor from the PEFT model repo (it should have the tokenizer files)
+        processor = AutoProcessor.from_pretrained(
+            args.model_id, revision=args.revision
+        )
     else:
-        # Check if this is a PEFT model by trying to load adapter_config.json
-        is_peft_model = False
-        base_model_name = None
-
-        try:
-            # Try to download and read adapter_config.json
-            adapter_config_path = hf_hub_download(
-                repo_id=args.model_id,
-                filename="adapter_config.json",
-                revision=args.revision,
-            )
-            with open(adapter_config_path, "r") as f:
-                adapter_config = json.load(f)
-            is_peft_model = True
-            base_model_name = adapter_config.get("base_model_name_or_path")
-            print(f"Detected PEFT model. Base model: {base_model_name}")
-        except Exception:
-            # Not a PEFT model, continue with normal loading
-            pass
-
-        if is_peft_model and base_model_name:
-            # Load the base model first
-            config = AutoConfig.from_pretrained(base_model_name)
-            cls_model = (
-                AutoModelForSpeechSeq2Seq
-                if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING
-                else AutoModelForCTC
-            )
-            model = cls_model.from_pretrained(
-                base_model_name, torch_dtype=torch.bfloat16, attn_implementation="sdpa"
-            )
-
-            # Load and apply the PEFT adapter
-            model = PeftModel.from_pretrained(
-                model, args.model_id, revision=args.revision
-            )
-
-            # Merge adapter weights with base model for faster inference
-            model = model.merge_and_unload()
-            model = model.to(args.device)
-
-            # Load processor from the PEFT model repo (it should have the tokenizer files)
-            processor = AutoProcessor.from_pretrained(
-                args.model_id, revision=args.revision
-            )
-        else:
-            # Original loading logic for non-PEFT models
-            config = AutoConfig.from_pretrained(args.model_id, revision=args.revision)
-            cls_model = (
-                AutoModelForSpeechSeq2Seq
-                if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING
-                else AutoModelForCTC
-            )
-            model = cls_model.from_pretrained(
-                args.model_id,
-                torch_dtype=torch.bfloat16,
-                attn_implementation="sdpa",
-                revision=args.revision,
-            ).to(args.device)
-            processor = AutoProcessor.from_pretrained(
-                args.model_id, revision=args.revision
-            )
+        # Original loading logic for non-PEFT models
+        config = AutoConfig.from_pretrained(args.model_id, revision=args.revision)
+        cls_model = (
+            AutoModelForSpeechSeq2Seq
+            if type(config) in MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING
+            else AutoModelForCTC
+        )
+        model = cls_model.from_pretrained(
+            args.model_id,
+            torch_dtype=torch.bfloat16,
+            attn_implementation="sdpa",
+            revision=args.revision,
+        ).to(args.device)
+        processor = AutoProcessor.from_pretrained(
+            args.model_id, revision=args.revision
+        )
 
     # Construct the path for the results manifest file
     model_id_str = args.model_id.replace("/", "-")
@@ -124,59 +123,20 @@ def main(args):
             hasattr(model.generation_config, "is_multilingual")
             and model.generation_config.is_multilingual
         ):
-            gen_kwargs["language"] = "en"
+            gen_kwargs["language"] = "ja"
             gen_kwargs["task"] = "transcribe"
     elif args.max_new_tokens:
         raise ValueError(
             "`max_new_tokens` should only be set for auto-regressive models, but got a CTC model."
         )
 
-    if args.torch_compile and not using_optimized:
+    if args.torch_compile:
         model.forward = torch.compile(
             model.forward, mode=args.compile_mode, fullgraph=True
         )
         if model.can_generate():
             # enable static k/v cache for autoregressive models
             model.generation_config.cache_implementation = "static"
-
-    def benchmark_optimized(batch, min_new_tokens=None):
-        """Benchmark function specifically for OptimizedWhisper that uses its transcribe method."""
-        import tempfile
-        import torchaudio
-
-        # Load audio inputs
-        audios = [audio["array"] for audio in batch["audio"]]
-        batch["audio_length_s"] = [
-            len(a["array"]) / a["sampling_rate"] for a in batch["audio"]
-        ]
-
-        pred_text = []
-        transcription_times = []
-
-        # Process each audio through the optimized pipeline
-        for audio_array in audios:
-            # Save audio to temporary file
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
-                audio_tensor = torch.tensor(audio_array).unsqueeze(0)
-                torchaudio.save(tmp_file.name, audio_tensor, 16000)
-
-                # Time the optimized transcription
-                start_time = time.time()
-                text = opt.transcribe(tmp_file.name)
-                runtime = time.time() - start_time
-
-                pred_text.append(text)
-                transcription_times.append(runtime)
-
-                # Clean up temp file
-                os.unlink(tmp_file.name)
-
-        batch["transcription_time_s"] = transcription_times
-
-        # Normalize transcriptions with English normalizer
-        batch["predictions"] = [data_utils.normalizer(pred) for pred in pred_text]
-        batch["references"] = batch["norm_text"]
-        return batch
 
     def benchmark(batch, min_new_tokens=None):
         # Load audio inputs
@@ -194,7 +154,7 @@ def main(args):
         # 1.1 Pad audios to max batch size if using torch compile to prevent re-compilations
         padding_size = None
         if minibatch_size != args.batch_size and (
-            args.torch_compile or using_optimized
+            args.torch_compile
         ):
             padding_size = args.batch_size - minibatch_size
             padding_audios = [audios[-1] for _ in range(padding_size)]
@@ -219,13 +179,13 @@ def main(args):
             )
 
         inputs = inputs.to(args.device)
-        dtype_to_use = opt.dtype if using_optimized else torch.bfloat16
+        dtype_to_use = torch.bfloat16
         inputs[model_input_name] = inputs[model_input_name].to(dtype_to_use)
 
         # 2. Model Inference
         with sdpa_kernel(
             SDPBackend.MATH
-            if (args.torch_compile or using_optimized)
+            if (args.torch_compile)
             else SDPBackend.FLASH_ATTENTION
         ):
             if model.can_generate():
@@ -254,12 +214,12 @@ def main(args):
         batch["transcription_time_s"] = minibatch_size * [runtime / minibatch_size]
 
         # normalize transcriptions with English normalizer
-        batch["predictions"] = [data_utils.normalizer(pred) for pred in pred_text]
-        batch["references"] = batch["norm_text"]
+        batch["predictions"] = [ja_normalize_for_cer(pred) for pred in pred_text]
+        batch["references"] = [ja_normalize_for_cer(x) for x in batch["norm_text"]]
         return batch
 
     # Determine which benchmark function to use
-    benchmark_fn = benchmark_optimized if using_optimized else benchmark
+    benchmark_fn = benchmark
 
     if args.warmup_steps is not None:
         dataset = data_utils.load_data(args)
@@ -324,7 +284,7 @@ def main(args):
     )
     print("Results saved at path:", os.path.abspath(manifest_path))
 
-    wer = wer_metric.compute(
+    wer = metric.compute(
         references=all_results["references"], predictions=all_results["predictions"]
     )
     wer = round(100 * wer, 2)

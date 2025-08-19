@@ -33,7 +33,8 @@ normalizer = EnglishTextNormalizer()
 
 def normalize(batch):
     batch["original_text"] = get_text(batch)
-    batch["norm_text"] = normalizer(batch["original_text"])
+    # batch["norm_text"] = normalizer(batch["original_text"])
+    batch["norm_text"] = batch["original_text"]
     return batch
 
 
