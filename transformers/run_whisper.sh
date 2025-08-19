@@ -12,6 +12,7 @@ if [ -n "$REVISION" ]; then
     REVISION_ARG="--revision=${REVISION}"
 fi
 
+PROMPT="Jack McIntire, Speechmatics, process.env, bun run dev, Clausewitz"
 num_models=${#MODEL_IDs[@]}
 
 for (( i=0; i<${num_models}; i++ ));
@@ -20,93 +21,90 @@ do
 
     python run_eval.py \
         --model_id=${MODEL_ID} \
-        --dataset_path="mozilla-foundation/common_voice_17_0" \
-        --dataset="ja" \
+        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+        --dataset="voxpopuli" \
+        --split="test" \
+        --device=0 \
+        --batch_size=${BATCH_SIZE} \
+        --max_eval_samples=-1 \
+        --prompt=${PROMPT} \
+        ${REVISION_ARG}
+
+    python run_eval.py \
+        --model_id=${MODEL_ID} \
+        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+        --dataset="ami" \
+        --split="test" \
+        --device=0 \
+        --batch_size=${BATCH_SIZE} \
+        --max_eval_samples=-1 \
+        --prompt=${PROMPT} \
+        ${REVISION_ARG}
+
+    python run_eval.py \
+        --model_id=${MODEL_ID} \
+        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+        --dataset="earnings22" \
+        --split="test" \
+        --device=0 \
+        --batch_size=${BATCH_SIZE} \            
+        --max_eval_samples=-1 \
+        --prompt=${PROMPT} \
+        ${REVISION_ARG}
+
+    python run_eval.py \
+        --model_id=${MODEL_ID} \
+        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+        --dataset="gigaspeech" \
+        --split="test" \
+        --device=0 \
+        --batch_size=${BATCH_SIZE} \
+        --max_eval_samples=-1 \
+        --prompt=${PROMPT} \
+        ${REVISION_ARG}
+
+    python run_eval.py \
+        --model_id=${MODEL_ID} \
+        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+        --dataset="librispeech" \
+        --split="test.clean" \
+        --device=0 \
+        --batch_size=${BATCH_SIZE} \
+        --max_eval_samples=-1 \
+        --prompt=${PROMPT} \
+        ${REVISION_ARG}
+
+    python run_eval.py \
+        --model_id=${MODEL_ID} \
+        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+        --dataset="librispeech" \
+        --split="test.other" \
+        --device=0 \
+        --batch_size=${BATCH_SIZE} \
+        --max_eval_samples=-1 \
+        --prompt=${PROMPT} \
+        ${REVISION_ARG}
+
+    python run_eval.py \
+        --model_id=${MODEL_ID} \
+        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+        --dataset="spgispeech" \
         --split="test" \
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
         ${REVISION_ARG}
 
-    # python run_eval.py \
-    #     --model_id=${MODEL_ID} \
-    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-    #     --dataset="voxpopuli" \
-    #     --split="test" \
-    #     --device=0 \
-    #     --batch_size=${BATCH_SIZE} \
-    #     --max_eval_samples=-1 \
-    #     ${REVISION_ARG}
-
-    # python run_eval.py \
-    #     --model_id=${MODEL_ID} \
-    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-    #     --dataset="ami" \
-    #     --split="test" \
-    #     --device=0 \
-    #     --batch_size=${BATCH_SIZE} \
-    #     --max_eval_samples=-1 \
-    #     ${REVISION_ARG}
-
-    # python run_eval.py \
-    #     --model_id=${MODEL_ID} \
-    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-    #     --dataset="earnings22" \
-    #     --split="test" \
-    #     --device=0 \
-    #     --batch_size=${BATCH_SIZE} \
-    #     --max_eval_samples=-1 \
-    #     ${REVISION_ARG}
-
-    # python run_eval.py \
-    #     --model_id=${MODEL_ID} \
-    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-    #     --dataset="gigaspeech" \
-    #     --split="test" \
-    #     --device=0 \
-    #     --batch_size=${BATCH_SIZE} \
-    #     --max_eval_samples=-1 \
-    #     ${REVISION_ARG}
-
-    # python run_eval.py \
-    #     --model_id=${MODEL_ID} \
-    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-    #     --dataset="librispeech" \
-    #     --split="test.clean" \
-    #     --device=0 \
-    #     --batch_size=${BATCH_SIZE} \
-    #     --max_eval_samples=-1 \
-    #     ${REVISION_ARG}
-
-    # python run_eval.py \
-    #     --model_id=${MODEL_ID} \
-    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-    #     --dataset="librispeech" \
-    #     --split="test.other" \
-    #     --device=0 \
-    #     --batch_size=${BATCH_SIZE} \
-    #     --max_eval_samples=-1 \
-    #     ${REVISION_ARG}
-
-    # python run_eval.py \
-    #     --model_id=${MODEL_ID} \
-    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-    #     --dataset="spgispeech" \
-    #     --split="test" \
-    #     --device=0 \
-    #     --batch_size=${BATCH_SIZE} \
-    #     --max_eval_samples=-1 \
-    #     ${REVISION_ARG}
-
-    # python run_eval.py \
-    #     --model_id=${MODEL_ID} \
-    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-    #     --dataset="tedlium" \
-    #     --split="test" \
-    #     --device=0 \
-    #     --batch_size=${BATCH_SIZE} \
-    #     --max_eval_samples=-1 \
-    #     ${REVISION_ARG}
+    python run_eval.py \
+        --model_id=${MODEL_ID} \
+        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+        --dataset="tedlium" \
+        --split="test" \
+        --device=0 \
+        --batch_size=${BATCH_SIZE} \
+        --max_eval_samples=-1 \
+        --prompt=${PROMPT} \
+        ${REVISION_ARG}
     
     # python run_eval.py \
     #     --model_id=${MODEL_ID} \

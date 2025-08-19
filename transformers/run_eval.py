@@ -16,23 +16,22 @@ from tqdm import tqdm
 import json
 from huggingface_hub import hf_hub_download
 from peft import PeftModel
-import re, unicodedata
+# import re, unicodedata
 
-def ja_normalize_for_cer(s: str, drop_punct=False, drop_spaces=True):
-    # Compatibility + width normalization; keeps dakuten/handakuten intact.
-    s = unicodedata.normalize("NFKC", s)
-    if drop_spaces:
-        s = re.sub(r"[ \u3000]+", "", s)  # ASCII/ideographic spaces
-    if drop_punct:
-        # Remove common JP/ASCII punctuation blocks if your references omit them.
-        s = re.sub(r"[\u3000-\u303F\uFF00-\uFF65\u2000-\u206F"
-                   r"\u2E00-\u2E7F\u0021-\u002F\u003A-\u0040"
-                   r"\u005B-\u0060\u007B-\u007E]", "", s)
-    return s
+# def ja_normalize_for_cer(s: str, drop_punct=False, drop_spaces=True):
+#     # Compatibility + width normalization; keeps dakuten/handakuten intact.
+#     s = unicodedata.normalize("NFKC", s)
+#     if drop_spaces:
+#         s = re.sub(r"[ \u3000]+", "", s)  # ASCII/ideographic spaces
+#     if drop_punct:
+#         # Remove common JP/ASCII punctuation blocks if your references omit them.
+#         s = re.sub(r"[\u3000-\u303F\uFF00-\uFF65\u2000-\u206F"
+#                    r"\u2E00-\u2E7F\u0021-\u002F\u003A-\u0040"
+#                    r"\u005B-\u0060\u007B-\u007E]", "", s)
+#     return s
 
 wer_metric = evaluate.load("wer")
-cer_metric = evaluate.load("cer")
-metric = cer_metric
+metric = wer_metric
 torch.set_float32_matmul_precision("high")
 
 
@@ -104,7 +103,7 @@ def main(args):
     model_id_str = args.model_id.replace("/", "-")
     dataset_path_str = args.dataset_path.replace("/", "-")
     dataset_str = args.dataset.replace("/", "-")
-    manifest_path = f"results/MODEL_{model_id_str}_DATASET_{dataset_path_str}_{dataset_str}_{args.split}.jsonl"
+    manifest_path = f"results/prompted/MODEL_{model_id_str}_DATASET_{dataset_path_str}_{dataset_str}_{args.split}.jsonl"
 
     # Check if the results file already exists
     if os.path.exists(manifest_path):
@@ -123,8 +122,15 @@ def main(args):
             hasattr(model.generation_config, "is_multilingual")
             and model.generation_config.is_multilingual
         ):
-            gen_kwargs["language"] = "ja"
+            gen_kwargs["language"] = "en"
             gen_kwargs["task"] = "transcribe"
+        
+        # Add prompt support for Whisper models
+        if args.prompt:
+            prompt_ids = processor.tokenizer(
+                args.prompt, add_special_tokens=False, return_tensors="pt"
+            ).input_ids.to(args.device)
+            gen_kwargs["prompt_ids"] = prompt_ids
     elif args.max_new_tokens:
         raise ValueError(
             "`max_new_tokens` should only be set for auto-regressive models, but got a CTC model."
@@ -214,8 +220,8 @@ def main(args):
         batch["transcription_time_s"] = minibatch_size * [runtime / minibatch_size]
 
         # normalize transcriptions with English normalizer
-        batch["predictions"] = [ja_normalize_for_cer(pred) for pred in pred_text]
-        batch["references"] = [ja_normalize_for_cer(x) for x in batch["norm_text"]]
+        batch["predictions"] = [data_utils.normalizer(pred) for pred in pred_text]
+        batch["references"] = batch["norm_text"]
         return batch
 
     # Determine which benchmark function to use
@@ -353,6 +359,12 @@ if __name__ == "__main__":
         help="Maximum number of tokens to generate (for auto-regressive models).",
     )
     parser.add_argument(
+        "--prompt",
+        type=str,
+        default=None,
+        help="Optional text prompt to condition Whisper generation.",
+    )
+    parser.add_argument(
         "--torch_compile",
         action="store_true",
         help="Whether to JIT compile the forward pass of the model.",
@@ -377,5 +389,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     parser.set_defaults(streaming=False)
+    print("Running with prompt:", args.prompt)
 
     main(args)
