@@ -12,11 +12,11 @@ MODEL_IDs=(
     # "openai/gpt-4o-mini-transcribe"
     # "openai/whisper-1"
     # "assembly/best"
-    # "elevenlabs/scribe_v1"
+    "elevenlabs/scribe_v1"
     # "revai/machine" # please use --use_url=True
     # "revai/fusion" # please use --use_url=True
     # "speechmatics/enhanced"
-    "avalon-b200"
+    # "avalon-b200"
 )
 
 num_models=${#MODEL_IDs[@]}
@@ -37,8 +37,6 @@ do
     #     --split="test" \
     #     --model_name ${MODEL_ID} \
     #     --max_workers=3
-
-        
 
     # python run_eval.py \
     #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
@@ -82,12 +80,19 @@ do
     #     --model_name ${MODEL_ID} \
     #     --max_workers=3
     
+    # python run_eval.py \
+    #     --dataset_path="aquavoice/cleaned_dataset_full_2x_en_resplit" \
+    #     --dataset="default" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=1
+
     python run_eval.py \
-        --dataset_path="aquavoice/cleaned_dataset_full_2x_en_resplit" \
+        --dataset_path="jmci/aispeak-v1" \
         --dataset="default" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=1
+        --max_workers=10
     
     # Evaluate results
     RUNDIR=`pwd` && \
