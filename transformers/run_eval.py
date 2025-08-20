@@ -103,7 +103,7 @@ def main(args):
     model_id_str = args.model_id.replace("/", "-")
     dataset_path_str = args.dataset_path.replace("/", "-")
     dataset_str = args.dataset.replace("/", "-")
-    manifest_path = f"results/prompted/MODEL_{model_id_str}_DATASET_{dataset_path_str}_{dataset_str}_{args.split}.jsonl"
+    manifest_path = f"results/MODEL_{model_id_str}_DATASET_{dataset_path_str}_{dataset_str}_{args.split}.jsonl"
 
     # Check if the results file already exists
     if os.path.exists(manifest_path):
@@ -124,13 +124,8 @@ def main(args):
         ):
             gen_kwargs["language"] = "en"
             gen_kwargs["task"] = "transcribe"
+    
         
-        # Add prompt support for Whisper models
-        if args.prompt:
-            prompt_ids = processor.tokenizer(
-                args.prompt, add_special_tokens=False, return_tensors="pt"
-            ).input_ids.to(args.device)
-            gen_kwargs["prompt_ids"] = prompt_ids
     elif args.max_new_tokens:
         raise ValueError(
             "`max_new_tokens` should only be set for auto-regressive models, but got a CTC model."
@@ -166,6 +161,8 @@ def main(args):
             padding_audios = [audios[-1] for _ in range(padding_size)]
             audios.extend(padding_audios)
 
+        actual_batch_size = len(audios)  # This is the actual batch size after padding
+
         if (
             not model.can_generate()
         ):  # or len(audios[0]) > processor.feature_extractor.n_samples:
@@ -187,6 +184,16 @@ def main(args):
         inputs = inputs.to(args.device)
         dtype_to_use = torch.bfloat16
         inputs[model_input_name] = inputs[model_input_name].to(dtype_to_use)
+
+        # # Handle prompt for batch generation
+        # batch_gen_kwargs = gen_kwargs.copy()
+        # if args.prompt and model.can_generate():
+        #     # Tokenize prompt and keep it as 1D tensor
+        #     prompt_ids = processor.tokenizer(
+        #         args.prompt, add_special_tokens=False, return_tensors="pt"
+        #     ).input_ids.squeeze(0).to(args.device)  # squeeze to get 1D tensor
+            
+        #     batch_gen_kwargs["prompt_ids"] = prompt_ids  # Pass 1D tensor directly
 
         # 2. Model Inference
         with sdpa_kernel(
@@ -389,6 +396,5 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     parser.set_defaults(streaming=False)
-    print("Running with prompt:", args.prompt)
 
     main(args)

@@ -4,7 +4,7 @@ import argparse
 from collections import defaultdict
 import evaluate
 
-wer_metric = evaluate.load("cer")
+wer_metric = evaluate.load("wer")
 
 
 def parse_filename(filename):

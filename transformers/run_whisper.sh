@@ -27,7 +27,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --prompt=${PROMPT} \
+        --prompt="${PROMPT}" \
         ${REVISION_ARG}
 
     python run_eval.py \
@@ -38,7 +38,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --prompt=${PROMPT} \
+        --prompt="${PROMPT}" \
         ${REVISION_ARG}
 
     python run_eval.py \
@@ -47,9 +47,9 @@ do
         --dataset="earnings22" \
         --split="test" \
         --device=0 \
-        --batch_size=${BATCH_SIZE} \            
+        --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --prompt=${PROMPT} \
+        --prompt="${PROMPT}" \
         ${REVISION_ARG}
 
     python run_eval.py \
@@ -60,7 +60,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --prompt=${PROMPT} \
+        --prompt="${PROMPT}" \
         ${REVISION_ARG}
 
     python run_eval.py \
@@ -71,7 +71,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --prompt=${PROMPT} \
+        --prompt="${PROMPT}" \
         ${REVISION_ARG}
 
     python run_eval.py \
@@ -82,7 +82,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --prompt=${PROMPT} \
+        --prompt="${PROMPT}" \
         ${REVISION_ARG}
 
     python run_eval.py \
@@ -103,7 +103,7 @@ do
         --device=0 \
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
-        --prompt=${PROMPT} \
+        --prompt="${PROMPT}" \
         ${REVISION_ARG}
     
     # python run_eval.py \
