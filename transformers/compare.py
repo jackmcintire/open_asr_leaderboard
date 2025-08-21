@@ -74,7 +74,7 @@ def highlight_differences(reference, prediction):
     return " ".join(ref_highlighted), " ".join(pred_highlighted)
 
 
-def compare_models(model_a_file, model_b_file, top_n=50):
+def compare_models(model_a_file, model_b_file, top_n=500):
     """Compare two models and show examples where model A performed worse than model B"""
 
     print(f"Loading Model A: {colored(model_a_file, 'cyan', attrs=['bold'])}")

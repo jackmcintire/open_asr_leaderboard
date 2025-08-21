@@ -22,8 +22,63 @@ from speechmatics.models import ConnectionSettings, BatchTranscriptionConfig, Fe
 from speechmatics.batch_client import BatchClient
 from httpx import HTTPStatusError
 from requests_toolbelt import MultipartEncoder
+import json
+import hashlib
+from pathlib import Path
 
 load_dotenv()
+
+
+def get_cache_path(model_name, dataset_path, dataset, split):
+    """Generate a cache file path for the given model and dataset configuration."""
+    cache_dir = Path(".cache/transcriptions")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    
+    cache_key = f"{model_name}_{dataset_path}_{dataset}_{split}".replace("/", "_").replace(":", "_")
+    return cache_dir / f"{cache_key}.jsonl"
+
+
+def load_cache(cache_path):
+    """Load existing cached results from a JSONL file."""
+    cached_results = {}
+    if cache_path.exists():
+        try:
+            with open(cache_path, "r") as f:
+                for line in f:
+                    if line.strip():
+                        entry = json.loads(line)
+                        cached_results[entry["sample_id"]] = entry
+            print(f"Loaded {len(cached_results)} cached results from {cache_path}")
+        except Exception as e:
+            print(f"Warning: Error loading cache: {e}")
+    return cached_results
+
+
+def save_to_cache(cache_path, sample_id, reference, prediction, audio_duration, transcription_time):
+    """Append a single result to the cache file."""
+    entry = {
+        "sample_id": sample_id,
+        "reference": reference,
+        "prediction": prediction,
+        "audio_duration": audio_duration,
+        "transcription_time": transcription_time
+    }
+    
+    with open(cache_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def get_sample_id(sample, index, use_url):
+    """Generate a unique ID for a sample based on its content."""
+    if use_url:
+        id_str = f"{index}_{sample['row']['audio'][0]['src']}"
+    else:
+        # Use the text content for better uniqueness
+        text = sample.get('norm_text', sample.get('text', ''))
+        audio_len = len(sample.get('audio', {}).get('array', [])) if 'audio' in sample else index
+        id_str = f"{index}_{text[:50]}_{audio_len}"
+    
+    return hashlib.md5(id_str.encode()).hexdigest()
 
 
 def fetch_audio_urls(dataset_path, dataset, split, batch_size=100, max_retries=20):
@@ -197,7 +252,7 @@ def transcribe_with_retry(
                 return response.strip()
 
             elif model_name.startswith("elevenlabs/"):
-                client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+                client = ElevenLabs(api_key="sk_bb4de18f1a5627f0394de3fc6fb49674d3104fad0f0abb21")
                 if use_url:
                     response = requests.get(sample["row"]["audio"][0]["src"])
                     audio_data = BytesIO(response.content)
@@ -296,17 +351,29 @@ def transcribe_dataset(
     use_url=False,
     max_samples=None,
     max_workers=4,
+    clear_cache=False,
 ):
+    # Load cache
+    cache_path = get_cache_path(model_name, dataset_path, dataset, split)
+    
+    if clear_cache and cache_path.exists():
+        print(f"Clearing cache file: {cache_path}")
+        cache_path.unlink()
+    
+    cached_results = load_cache(cache_path)
+    print(f"Cache file: {cache_path}")
+    
     if use_url:
         audio_rows = fetch_audio_urls(dataset_path, dataset, split)
         if max_samples:
             audio_rows = itertools.islice(audio_rows, max_samples)
-        ds = audio_rows
+        ds = list(enumerate(audio_rows))
     else:
         ds = datasets.load_dataset(dataset_path, dataset, split=split, streaming=False)
         ds = data_utils.prepare_data(ds)
         if max_samples:
             ds = ds.take(max_samples)
+        ds = list(enumerate(ds))
 
     results = {
         "references": [],
@@ -317,7 +384,15 @@ def transcribe_dataset(
 
     print(f"Transcribing with model: {model_name}")
 
-    def process_sample(sample):
+    def process_sample(indexed_sample):
+        index, sample = indexed_sample
+        sample_id = get_sample_id(sample, index, use_url)
+        
+        # Check if already cached
+        if sample_id in cached_results:
+            cached = cached_results[sample_id]
+            return cached["reference"], cached["prediction"], cached["audio_duration"], cached["transcription_time"]
+        
         if use_url:
             reference = sample["row"]["text"].strip() or " "
             audio_duration = sample["row"]["audio_length_s"]
@@ -360,8 +435,20 @@ def transcribe_dataset(
                     print(f"File {tmp_path} does not exist")
 
         transcription_time = time.time() - start
-        return reference, transcription, audio_duration, transcription_time
+        
+        # Normalize before caching
+        normalized_reference = data_utils.normalizer(reference) or " "
+        normalized_prediction = data_utils.normalizer(transcription) or " "
+        
+        # Save to cache
+        save_to_cache(cache_path, sample_id, normalized_reference, normalized_prediction, audio_duration, transcription_time)
+        
+        return normalized_reference, normalized_prediction, audio_duration, transcription_time
 
+    # Count how many samples are already cached
+    cached_count = sum(1 for idx, sample in ds if get_sample_id(sample, idx, use_url) in cached_results)
+    print(f"Skipping {cached_count} cached samples, processing {len(ds) - cached_count} new samples")
+    
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_sample = {
             executor.submit(process_sample, sample): sample for sample in ds
@@ -369,7 +456,7 @@ def transcribe_dataset(
         for future in tqdm(
             concurrent.futures.as_completed(future_to_sample),
             total=len(future_to_sample),
-            desc="Transcribing",
+            desc="Processing samples",
         ):
             result = future.result()
             if result:
@@ -378,14 +465,6 @@ def transcribe_dataset(
                 results["references"].append(reference)
                 results["audio_length_s"].append(audio_duration)
                 results["transcription_time_s"].append(transcription_time)
-
-    results["predictions"] = [
-        data_utils.normalizer(transcription) or " "
-        for transcription in results["predictions"]
-    ]
-    results["references"] = [
-        data_utils.normalizer(reference) or " " for reference in results["references"]
-    ]
 
     manifest_path = data_utils.write_manifest(
         results["references"],
@@ -434,6 +513,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Use URL-based audio fetching instead of datasets",
     )
+    parser.add_argument(
+        "--clear_cache",
+        action="store_true",
+        help="Clear the cache for this model/dataset combination before starting",
+    )
 
     args = parser.parse_args()
 
@@ -447,4 +531,5 @@ if __name__ == "__main__":
         use_url=args.use_url,
         max_samples=args.max_samples,
         max_workers=args.max_workers,
+        clear_cache=args.clear_cache,
     )

@@ -16,19 +16,6 @@ from tqdm import tqdm
 import json
 from huggingface_hub import hf_hub_download
 from peft import PeftModel
-# import re, unicodedata
-
-# def ja_normalize_for_cer(s: str, drop_punct=False, drop_spaces=True):
-#     # Compatibility + width normalization; keeps dakuten/handakuten intact.
-#     s = unicodedata.normalize("NFKC", s)
-#     if drop_spaces:
-#         s = re.sub(r"[ \u3000]+", "", s)  # ASCII/ideographic spaces
-#     if drop_punct:
-#         # Remove common JP/ASCII punctuation blocks if your references omit them.
-#         s = re.sub(r"[\u3000-\u303F\uFF00-\uFF65\u2000-\u206F"
-#                    r"\u2E00-\u2E7F\u0021-\u002F\u003A-\u0040"
-#                    r"\u005B-\u0060\u007B-\u007E]", "", s)
-#     return s
 
 wer_metric = evaluate.load("wer")
 metric = wer_metric
@@ -122,7 +109,7 @@ def main(args):
             hasattr(model.generation_config, "is_multilingual")
             and model.generation_config.is_multilingual
         ):
-            gen_kwargs["language"] = "en"
+            gen_kwargs["language"] = args.language
             gen_kwargs["task"] = "transcribe"
     
         
@@ -184,17 +171,6 @@ def main(args):
         inputs = inputs.to(args.device)
         dtype_to_use = torch.bfloat16
         inputs[model_input_name] = inputs[model_input_name].to(dtype_to_use)
-
-        # # Handle prompt for batch generation
-        # batch_gen_kwargs = gen_kwargs.copy()
-        # if args.prompt and model.can_generate():
-        #     # Tokenize prompt and keep it as 1D tensor
-        #     prompt_ids = processor.tokenizer(
-        #         args.prompt, add_special_tokens=False, return_tensors="pt"
-        #     ).input_ids.squeeze(0).to(args.device)  # squeeze to get 1D tensor
-            
-        #     batch_gen_kwargs["prompt_ids"] = prompt_ids  # Pass 1D tensor directly
-
         # 2. Model Inference
         with sdpa_kernel(
             SDPBackend.MATH
@@ -393,6 +369,13 @@ if __name__ == "__main__":
         type=int,
         default=10,
         help="Number of warm-up steps to run before launching the timed runs.",
+    )
+
+    parser.add_argument(
+        "--language",
+        type=str,
+        default="en",
+        help="Language to use for the model.",
     )
     args = parser.parse_args()
     parser.set_defaults(streaming=False)

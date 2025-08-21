@@ -42,10 +42,10 @@ def parse_filename(filename):
 def compute_metrics(filepath, duration_threshold=None):
     data = [json.loads(line) for line in open(filepath) if line.strip()]
 
-    references = [d["text"] for d in data]
-    predictions = [d["pred_text"] for d in data]
-    audio_durations = [d["duration"] for d in data]
-    transcription_times = [d["time"] for d in data]
+    references = [d.get("text", d.get("reference")) for d in data]
+    predictions = [d.get("pred_text", d.get("prediction")) for d in data]
+    audio_durations = [d.get("duration", d.get("audio_duration")) for d in data]
+    transcription_times = [d.get("time", d.get("transcription_time")) for d in data]
     special_words = [
         d.get("matched_special_words", []) for d in data
     ]  # Use get() with default empty list
@@ -157,7 +157,7 @@ def main():
                 continue
                 
             # Skip excluded datasets
-            if "global-dict" in dataset_name or "aquavoice" in dataset_name:
+            if "global-dict" in dataset_name or "aquavoice" in dataset_name or "aispeak" in dataset_name:
                 continue
                 
             # Read the file and collect long clips
@@ -166,9 +166,14 @@ def main():
                 for line in f:
                     if line.strip():
                         d = json.loads(line)
-                        if d["duration"] > args.min_duration:
-                            model_long_clip_data[model_name]["refs"].append(d["text"])
-                            model_long_clip_data[model_name]["preds"].append(d["pred_text"])
+                        duration = d.get("duration", d.get("audio_duration"))
+                        if duration > args.min_duration:
+                            model_long_clip_data[model_name]["refs"].append(
+                                d.get("text", d.get("reference"))
+                            )
+                            model_long_clip_data[model_name]["preds"].append(
+                                d.get("pred_text", d.get("prediction"))
+                            )
 
     for model_name, datasets in model_results.items():
         print(f"\n{model_name}")
@@ -196,7 +201,7 @@ def main():
             print(line)
             
             if (
-                not "global-dict" in dataset and not "aquavoice" in dataset
+                not "global-dict" in dataset and not "aquavoice" in dataset and not "aispeak" in dataset
             ):  # exclude from metrics as these are all present in the aquavoice dataset
                 dataset_count += 1
                 sum_wer += m["wer"]
