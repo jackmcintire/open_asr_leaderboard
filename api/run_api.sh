@@ -6,9 +6,10 @@ export OPENAI_API_KEY="sk-proj-uPVK4YMBG7RsOfyXOShuF5eYzV2lnAn_NEcA1y-IkRogQTWl_
 export ASSEMBLYAI_API_KEY="your_api_key"
 export ELEVENLABS_API_KEY="your_api_key"
 export REVAI_API_KEY="your_api_key"
+export DEEPGRAM_API_KEY="c925efb2ee14bc3f33f6253f24a688217b3278fb"
 
 MODEL_IDs=(
-    "openai/gpt-4o-transcribe"
+    # "openai/gpt-4o-transcribe"
     # "openai/gpt-4o-mini-transcribe"
     # "openai/whisper-1"
     # "assembly/best"
@@ -16,6 +17,12 @@ MODEL_IDs=(
     # "revai/machine" # please use --use_url=True
     # "revai/fusion" # please use --use_url=True
     # "speechmatics/enhanced"
+    # "deepgram/nova-2"  # Latest Deepgram Nova 2 model
+    # "deepgram/nova-2:enhanced"  # Nova 2 with enhanced tier
+    # "deepgram/nova"  # Deepgram Nova (previous version)
+    "deepgram/nova-3"
+    # "deepgram/whisper-large"  # Deepgram's Whisper Large model
+    # "deepgram/base"  # Deepgram Base model
     # "avalon-b200-dev"
 )
 
@@ -29,70 +36,70 @@ do
         --dataset="default" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=100
+        --max_workers=20
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="ami" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=100
+        --max_workers=25
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="earnings22" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=100
+        --max_workers=25
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="gigaspeech" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=100
+        --max_workers=25
 
     python run_eval.py \
         --dataset_path "hf-audio/esb-datasets-test-only-sorted" \
         --dataset "librispeech" \
         --split "test.clean" \
         --model_name ${MODEL_ID} \
-        --max_workers=100
+        --max_workers=25
 
     python run_eval.py \
         --dataset_path "hf-audio/esb-datasets-test-only-sorted" \
         --dataset "librispeech" \
         --split "test.other" \
         --model_name ${MODEL_ID} \
-        --max_workers=100
+        --max_workers=25
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="spgispeech" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=100
+        --max_workers=25
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="tedlium" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=100
+        --max_workers=25
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
         --dataset="voxpopuli" \
         --split="test" \
         --model_name ${MODEL_ID} \
-        --max_workers=100
+        --max_workers=25
     
     # python run_eval.py \
     #     --dataset_path="aquavoice/cleaned_dataset_full_2x_en_resplit" \
     #     --dataset="default" \
     #     --split="test" \
     #     --model_name ${MODEL_ID} \
-    #     --max_workers=100
+    #     --max_workers=25
     
     # Evaluate results
     RUNDIR=`pwd` && \

@@ -25,6 +25,7 @@ from requests_toolbelt import MultipartEncoder
 import json
 import hashlib
 from pathlib import Path
+from deepgram import DeepgramClient, PrerecordedOptions, FileSource
 
 load_dotenv()
 
@@ -313,6 +314,60 @@ def transcribe_with_retry(
                         transcript_text.append(element.value)
 
                 return "".join(transcript_text) if transcript_text else ""
+            
+            elif model_name.startswith("deepgram/"):
+                api_key = os.getenv("DEEPGRAM_API_KEY")
+                if not api_key:
+                    raise ValueError("DEEPGRAM_API_KEY environment variable not set")
+                
+                client = DeepgramClient(api_key)
+                
+                # Parse model name - format: deepgram/nova-2 or deepgram/nova-2:tier
+                model_parts = model_name.split("/")[1].split(":")
+                model = model_parts[0]
+                tier = model_parts[1] if len(model_parts) > 1 else None
+                
+                options = PrerecordedOptions(
+                    model=model,
+                    language="en",
+                    smart_format=True,
+                    punctuate=True,
+                    diarize=False,
+                    tier=tier
+                )
+                
+                if use_url:
+                    audio_url = sample["row"]["audio"][0]["src"]
+                    try:
+                        response = client.listen.rest.v("1").transcribe_url(
+                            {"url": audio_url}, 
+                            options
+                        )
+                    except Exception as e:
+                        raise Exception(f"Deepgram transcription failed: {str(e)}") from e
+                else:
+                    with open(audio_file_path, "rb") as audio_file:
+                        buffer_data = audio_file.read()
+                    
+                    payload = {
+                        "buffer": buffer_data,
+                    }
+                    
+                    try:
+                        response = client.listen.rest.v("1").transcribe_file(
+                            payload,
+                            options
+                        )
+                    except Exception as e:
+                        raise Exception(f"Deepgram transcription failed: {str(e)}") from e
+                
+                # Extract transcript text from response
+                if response and response.results and response.results.channels:
+                    transcript = response.results.channels[0].alternatives[0].transcript
+                    return transcript if transcript else ""
+                else:
+                    return ""
+            
             elif model_name.startswith("avalon"):
                 # endpoint_url = "http://38.127.229.90:8001/transcribe"
                 # endpoint_url = "http://54.245.217.27:8001/transcribe"
@@ -323,7 +378,7 @@ def transcribe_with_retry(
 
             else:
                 raise ValueError(
-                    "Invalid model prefix, must start with 'assembly/', 'openai/', 'elevenlabs/' or 'revai/'"
+                    "Invalid model prefix, must start with 'assembly/', 'openai/', 'elevenlabs/', 'revai/', 'deepgram/', 'speechmatics/' or 'avalon'"
                 )
 
         except Exception as e:
@@ -504,7 +559,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         required=True,
-        help="Prefix model name with 'assembly/', 'openai/', 'elevenlabs/', 'revai/', or 'speechmatics/'",
+        help="Prefix model name with 'assembly/', 'openai/', 'elevenlabs/', 'revai/', 'deepgram/', or 'speechmatics/'",
     )
     parser.add_argument("--max_samples", type=int, default=None)
     parser.add_argument(
