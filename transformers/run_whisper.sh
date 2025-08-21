@@ -3,7 +3,7 @@
 export PYTHONPATH="..":$PYTHONPATH
 
 # MODEL_IDs=("openai/whisper-tiny.en" "openai/whisper-small.en" "openai/whisper-base.en" "openai/whisper-medium.en" "openai/whisper-large" "openai/whisper-large-v2" "openai/whisper-large-v3" "distil-whisper/distil-medium.en" "distil-whisper/distil-large-v2" "distil-whisper/distil-large-v3" "nyrahealth/CrisperWhisper")
-MODEL_IDs=("openai/whisper-large-v3" "aquavoice/sweet-lion-95")
+MODEL_IDs=("aquavoice/sweet-lion-95")
 BATCH_SIZE=128
 # Leave REVISION unset or empty for no revision
 REVISION=""
@@ -89,15 +89,16 @@ do
     #     --max_eval_samples=-1 \
     #     ${REVISION_ARG}
 
-    # python run_eval.py \
-    #     --model_id=${MODEL_ID} \
-    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-    #     --dataset="tedlium" \
-    #     --split="test" \
-    #     --device=0 \
-    #     --batch_size=${BATCH_SIZE} \
-    #     --max_eval_samples=-1 \
-    #     ${REVISION_ARG}
+    python run_eval.py \
+        --model_id=${MODEL_ID} \
+        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+        --dataset="tedlium" \
+        --split="test" \
+        --device=0 \
+        --batch_size=${BATCH_SIZE} \
+        --max_eval_samples=-1 \
+        --language="en" \
+        ${REVISION_ARG}
     
     # python run_eval.py \
     #     --model_id=${MODEL_ID} \
@@ -109,38 +110,38 @@ do
     #     --max_eval_samples=-1 \
     #     ${REVISION_ARG}
 
-    python run_eval.py \
-        --model_id=${MODEL_ID} \
-        --dataset_path="mozilla-foundation/common_voice_17_0" \
-        --dataset="de" \
-        --split="test" \
-        --device=0 \
-        --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1 \
-        --language="de" \
-        ${REVISION_ARG}
+    # python run_eval.py \
+    #     --model_id=${MODEL_ID} \
+    #     --dataset_path="mozilla-foundation/common_voice_17_0" \
+    #     --dataset="de" \
+    #     --split="test" \
+    #     --device=0 \
+    #     --batch_size=${BATCH_SIZE} \
+    #     --max_eval_samples=-1 \
+    #     --language="de" \
+    #     ${REVISION_ARG}
     
-    python run_eval.py \
-        --model_id=${MODEL_ID} \
-        --dataset_path="mozilla-foundation/common_voice_17_0" \
-        --dataset="es" \
-        --split="test" \
-        --device=0 \
-        --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1 \
-        --language="es" \
-        ${REVISION_ARG}
+    # python run_eval.py \
+    #     --model_id=${MODEL_ID} \
+    #     --dataset_path="mozilla-foundation/common_voice_17_0" \
+    #     --dataset="es" \
+    #     --split="test" \
+    #     --device=0 \
+    #     --batch_size=${BATCH_SIZE} \
+    #     --max_eval_samples=-1 \
+    #     --language="es" \
+    #     ${REVISION_ARG}
     
-    python run_eval.py \
-        --model_id=${MODEL_ID} \
-        --dataset_path="mozilla-foundation/common_voice_17_0" \
-        --dataset="ru" \
-        --split="test" \
-        --device=0 \
-        --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1 \
-        --language="ru" \
-        ${REVISION_ARG}
+    # python run_eval.py \
+    #     --model_id=${MODEL_ID} \
+    #     --dataset_path="mozilla-foundation/common_voice_17_0" \
+    #     --dataset="ru" \
+    #     --split="test" \
+    #     --device=0 \
+    #     --batch_size=${BATCH_SIZE} \
+    #     --max_eval_samples=-1 \
+    #     --language="ru" \
+    #     ${REVISION_ARG}
 
     # Evaluate results
     RUNDIR=`pwd` && \

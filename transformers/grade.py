@@ -33,6 +33,12 @@ def parse_filename(filename):
         else:
             # Keep just the dataset name (e.g., "earnings22") as before
             dataset_name = base_dataset
+    # Handle Mozilla Common Voice datasets with language codes
+    # Structure: mozilla-foundation-common_voice_<version>_<subversion>_<language>_<split>
+    elif (dataset_parts[0] == "mozilla-foundation-common" and 
+          len(dataset_parts) > 4 and dataset_parts[1] == "voice"):
+        language = dataset_parts[4]  # Extract language code (e.g., "de", "en")
+        dataset_name = f"common-voice-{language}"
     else:
         dataset_name = dataset_parts[0]
 

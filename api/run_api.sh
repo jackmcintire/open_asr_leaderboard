@@ -59,12 +59,12 @@ do
     #     --model_name ${MODEL_ID} \
     #     --max_workers=4
 
-    python run_eval.py \
-        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="spgispeech" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=4
+    # python run_eval.py \
+    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset="spgispeech" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=4
 
     python run_eval.py \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
@@ -73,26 +73,26 @@ do
         --model_name ${MODEL_ID} \
         --max_workers=4
 
-    python run_eval.py \
-        --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="voxpopuli" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=4
+    # python run_eval.py \
+    #     --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
+    #     --dataset="voxpopuli" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=4
     
-    python run_eval.py \
-        --dataset_path="aquavoice/cleaned_dataset_full_2x_en_resplit" \
-        --dataset="default" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=4
+    # python run_eval.py \
+    #     --dataset_path="aquavoice/cleaned_dataset_full_2x_en_resplit" \
+    #     --dataset="default" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=4
 
-    python run_eval.py \
-        --dataset_path="jmci/aispeak-v1" \
-        --dataset="default" \
-        --split="test" \
-        --model_name ${MODEL_ID} \
-        --max_workers=4
+    # python run_eval.py \
+    #     --dataset_path="jmci/aispeak-v1" \
+    #     --dataset="default" \
+    #     --split="test" \
+    #     --model_name ${MODEL_ID} \
+    #     --max_workers=4
     
     # Evaluate results
     RUNDIR=`pwd` && \
