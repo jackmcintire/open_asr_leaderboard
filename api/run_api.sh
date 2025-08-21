@@ -2,11 +2,11 @@
 
 export PYTHONPATH="..":$PYTHONPATH
 
-export OPENAI_API_KEY="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"
+export OPENAI_API_KEY=""
 export ASSEMBLYAI_API_KEY="your_api_key"
 export ELEVENLABS_API_KEY="your_api_key"
 export REVAI_API_KEY="your_api_key"
-export DEEPGRAM_API_KEY="c925efb2ee14bc3f33f6253f24a688217b3278fb"
+export DEEPGRAM_API_KEY=""
 
 MODEL_IDs=(
     # "openai/gpt-4o-transcribe"
