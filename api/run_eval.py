@@ -230,10 +230,12 @@ def transcribe_with_retry(
                 return transcript.text
 
             elif model_name.startswith("openai/"):
+                client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
                 if use_url:
                     response = requests.get(sample["row"]["audio"][0]["src"])
                     audio_data = BytesIO(response.content)
-                    response = openai.Audio.transcribe(
+                    audio_data.name = "audio.wav"
+                    transcription = client.audio.transcriptions.create(
                         model=model_name.split("/")[1],
                         file=audio_data,
                         response_format="text",
@@ -242,14 +244,14 @@ def transcribe_with_retry(
                     )
                 else:
                     with open(audio_file_path, "rb") as audio_file:
-                        response = openai.Audio.transcribe(
+                        transcription = client.audio.transcriptions.create(
                             model=model_name.split("/")[1],
                             file=audio_file,
                             response_format="text",
                             language="en",
                             temperature=0.0,
                         )
-                return response.strip()
+                return transcription.strip()
 
             elif model_name.startswith("elevenlabs/"):
                 client = ElevenLabs(api_key="sk_bb4de18f1a5627f0394de3fc6fb49674d3104fad0f0abb21")
